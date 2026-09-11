@@ -1,8 +1,8 @@
 # Hosted Fields examples
 
-Five merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
-`python-flask-js/` and `nextjs/`. They exist to be read, so clarity beats cleverness everywhere in
-this repository.
+Six merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
+`python-flask-js/`, `ruby-sinatra-js/` and `nextjs/`. They exist to be read, so clarity beats
+cleverness everywhere in this repository.
 
 ## The rule that breaks most often
 
@@ -136,6 +136,24 @@ used for the page. Four rules, each explained where it is enforced:
   so the body is read off the `HTTPError`. This is the one place Python's standard library pushes
   back against the contract, and getting it wrong turns every decline into a `502`.
 
+## Sinatra, in `ruby-sinatra-js/` only
+
+Sinatra and rack-protection both come with defaults that are sensible in general and wrong for
+this page. Four rules, each explained where it is enforced:
+
+- **nothing in `views/` is templated**, and `erb` is one method call away — the same hazard Flask
+  has. Both pages go out through `send_view`, and `config.js` is the only generated thing;
+- **`http_origin` and `frame_options` are off** in `configure`: the first answers the gateway's
+  cross-origin 3DS POST with a `403` before the checksum is ever read, the second sends an
+  `X-Frame-Options: SAMEORIGIN` that contradicts this app's `frame-ancestors 'none'` and that no
+  other example sends. **`absolute_redirects` is off** too, so the `303` carries a relative
+  `Location` and a TLS-terminating proxy cannot turn the 3DS return into an `http://` redirect;
+- **`static` is off** and `public/` goes out through an allowlist route declared last, because
+  Sinatra's `public_folder` serves at the root rather than under `BASE_PATH` and Sinatra matches
+  routes in declaration order;
+- the signature encoder is **`ERB::Util.url_encode`** and never `CGI.escape`, which is form
+  encoding and writes `+` for a space.
+
 ## Frontend constraints
 
 Everywhere:
@@ -151,7 +169,7 @@ Everywhere:
   header and not a violation of the no-templating rule. `nextjs/` is the exception again: Next
   emits its own inline scripts, so its middleware mints a nonce per request instead.
 
-In `go-js/`, `nodejs-express-js/`, `php-js/` and `python-flask-js/`:
+In every example but `nextjs/`:
 
 - No dependencies and no bundler for the browser half.
 - `public/` is ES5: `var`, `function`, no arrow functions, no template literals.
@@ -174,6 +192,7 @@ cd nodejs-express-js && npm ci && npm run build
 cd php-js            && php -l *.php tests/*.php && php tests/run.php
 cd python-flask-js   && python -m compileall -q -x '(\.venv|__pycache__)' . \
                      && python -m unittest discover -s tests -t .
+cd ruby-sinatra-js   && ruby -c *.rb config.ru test/*.rb && ruby test/all.rb
 cd nextjs            && yarn install && yarn lint && yarn build
 ```
 
@@ -186,7 +205,8 @@ variables and drives a browser through the payment. It is **local only and not p
 the checks above** — it needs every toolchain, a browser and a `next build`.
 
 ```bash
-cd e2e-tests && npm test        # or test:go / test:express / test:php / test:python / test:nextjs
+cd e2e-tests && npm test        # or test:go / test:express / test:php / test:python /
+                                #    test:ruby / test:nextjs
 ```
 
 Four things about it are load-bearing:
