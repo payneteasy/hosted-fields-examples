@@ -16,6 +16,7 @@
     "test:ruby": "playwright test --project=ruby-sinatra-js",
     "test:java": "playwright test --project=java-springboot-js",
     "test:rust": "playwright test --project=rust-axum-js",
+    "test:dotnet": "playwright test --project=dotnet-aspnetcore-js",
     "test:nextjs": "playwright test --project=nextjs",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",

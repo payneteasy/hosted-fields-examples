@@ -21,6 +21,7 @@ PLAIN_JS_APPS=(
   ruby-sinatra-js
   java-springboot-js
   rust-axum-js
+  dotnet-aspnetcore-js
 )
 
 # React: the scripts and the views are components there, so only the stylesheet is shared.

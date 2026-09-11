@@ -1,8 +1,8 @@
 # Hosted Fields examples
 
-Eight working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on PHP, on
-Python, on Ruby, on Java, on Rust and on Next.js. Same payment, same screens, same flow — what
-differs is the server language and, in the last, whether the page is a static file or a React
+Nine working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on PHP, on
+Python, on Ruby, on Java, on Rust, on .NET and on Next.js. Same payment, same screens, same flow —
+what differs is the server language and, in the last, whether the page is a static file or a React
 tree.
 
 ## The examples
@@ -16,6 +16,7 @@ tree.
 | **Ruby** | Ruby 3.1+, Sinatra | [`ruby-sinatra-js/`](ruby-sinatra-js/) | [`app.rb`](ruby-sinatra-js/app.rb) routes · [`paynet.rb`](ruby-sinatra-js/paynet.rb) the three gateway calls · [`oauth.rb`](ruby-sinatra-js/oauth.rb) request signing |
 | **Java** | JDK 21+, Spring Boot | [`java-springboot-js/`](java-springboot-js/) | [`Routes.java`](java-springboot-js/src/main/java/com/payneteasy/hostedfields/Routes.java) routes · [`Paynet.java`](java-springboot-js/src/main/java/com/payneteasy/hostedfields/Paynet.java) the three gateway calls · [`OAuth.java`](java-springboot-js/src/main/java/com/payneteasy/hostedfields/OAuth.java) request signing |
 | **Rust** | Rust 1.85+, axum | [`rust-axum-js/`](rust-axum-js/) | [`src/main.rs`](rust-axum-js/src/main.rs) routes · [`src/paynet.rs`](rust-axum-js/src/paynet.rs) the three gateway calls · [`src/oauth.rs`](rust-axum-js/src/oauth.rs) request signing |
+| **.NET** | .NET 10+, ASP.NET Core, no NuGet package | [`dotnet-aspnetcore-js/`](dotnet-aspnetcore-js/) | [`Program.cs`](dotnet-aspnetcore-js/Program.cs) routes · [`Paynet.cs`](dotnet-aspnetcore-js/Paynet.cs) the three gateway calls · [`OAuth.cs`](dotnet-aspnetcore-js/OAuth.cs) request signing |
 | **Next.js** | Node 20+, React 19, TypeScript | [`nextjs/`](nextjs/) | [`src/app/`](nextjs/src/app/) pages and route handlers · [`src/shared/lib/paynet.ts`](nextjs/src/shared/lib/paynet.ts) the three gateway calls · [`src/shared/ui/checkout-form.tsx`](nextjs/src/shared/ui/checkout-form.tsx) the page |
 
 The browser half lives once, in [`shared/`](shared/) —
@@ -65,6 +66,7 @@ the older ones and the checksums.
 | Rust | Linux arm64 | [`..._linux_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-rust_linux_arm64.tar.gz) | the same |
 | Rust | macOS Apple silicon | [`..._darwin_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-rust_darwin_arm64.tar.gz) | `tar -xzf`, then `xattr -d com.apple.quarantine hosted-fields-example-rust` — the binary is not notarised |
 | Rust | Windows x64 | [`..._windows_amd64.zip`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-rust_windows_amd64.zip) | unzip, set the environment, run the `.exe` |
+| .NET | any | [`...dotnet.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-dotnet.tar.gz) | `tar -xzf`, then `dotnet hosted-fields-example-dotnet.dll` — needs the .NET 10 runtime and nothing else, the pages are inside the assembly |
 | Next.js | any | [`...nextjs.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nextjs.tar.gz) | the same, `node server.js` — but the URL prefix is compiled in, so rebuild from source to change it |
 
 The Linux archives also carry `deploy/` with a systemd unit, an nginx snippet and an environment
@@ -118,8 +120,8 @@ Put the key next to the app as `private_key.pem` or point `PRIVATE_KEY_PATH` at 
 
 None of these have defaults. Every example refuses to serve a payment until all of them are set,
 rather than falling back to a host baked in at some point and forgotten. Go, Express, Flask,
-Sinatra, Spring Boot and axum check at startup; Next checks on the first request, so that a build
-needs no credentials, and PHP on every request, because it has no startup to check at.
+Sinatra, Spring Boot, axum and ASP.NET Core check at startup; Next checks on the first request, so
+that a build needs no credentials, and PHP on every request, because it has no startup to check at.
 
 ## Run
 
@@ -180,6 +182,13 @@ cargo run                     # http://localhost:3007/hosted-fields-examples-rus
 ```
 
 ```bash
+# .NET — needs the .NET 10 SDK; no NuGet package to restore for the app itself
+cd dotnet-aspnetcore-js
+cp .env.example .env          # the same values
+dotnet run                    # http://localhost:3008/hosted-fields-examples-dotnet/
+```
+
+```bash
 # Next.js — needs Node 20+, yarn
 cd nextjs
 yarn install
@@ -194,7 +203,9 @@ Each app has its own README with the details — settings, the 3DS return, deplo
 [php-js/README.md](php-js/README.md) · [python-flask-js/README.md](python-flask-js/README.md) ·
 [ruby-sinatra-js/README.md](ruby-sinatra-js/README.md) ·
 [java-springboot-js/README.md](java-springboot-js/README.md) ·
-[rust-axum-js/README.md](rust-axum-js/README.md) · [nextjs/README.md](nextjs/README.md)
+[rust-axum-js/README.md](rust-axum-js/README.md) ·
+[dotnet-aspnetcore-js/README.md](dotnet-aspnetcore-js/README.md) ·
+[nextjs/README.md](nextjs/README.md)
 
 ## Layout
 
@@ -208,6 +219,7 @@ python-flask-js/        Python + Flask + plain JS
 ruby-sinatra-js/        Ruby + Sinatra + plain JS
 java-springboot-js/     Java + Spring Boot + plain JS, assets packaged into the jar
 rust-axum-js/           Rust + axum + plain JS, assets compiled into the binary
+dotnet-aspnetcore-js/   .NET + ASP.NET Core + plain JS, assets embedded in the assembly
 nextjs/                 Next.js + React + TypeScript
 e2e-tests/              a fake gateway, and every app driven through a browser
 ```
@@ -222,7 +234,7 @@ release archives carry nothing extra. Editing one directly is the mistake to avo
 
 CI runs that script and then `git diff --exit-code`, so an unsynced copy fails the push. There
 is no per-file list anywhere and no line that is allowed to differ — the config injection left
-the HTML and became `config.js`, which is why a fourth or an eighth language costs nothing here.
+the HTML and became `config.js`, which is why a fourth or a ninth language costs nothing here.
 
 `nextjs/` takes only `styles.css`: its scripts and views are React components. That one shared
 file is what keeps them from looking different.
@@ -265,6 +277,7 @@ drives a real browser through the payment.
 cd e2e-tests
 npm install && npm run browser   # once
 npm test
+npm run test:dotnet              # .NET is asked for by name, not part of `npm test`
 ```
 
 It runs locally only, not in CI, and it needs every toolchain. The signatures and the 3DS

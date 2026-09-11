@@ -1,7 +1,8 @@
 # Hosted Fields examples
 
-Eight merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
-`python-flask-js/`, `ruby-sinatra-js/`, `java-springboot-js/`, `rust-axum-js/` and `nextjs/`.
+Nine merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
+`python-flask-js/`, `ruby-sinatra-js/`, `java-springboot-js/`, `rust-axum-js/`,
+`dotnet-aspnetcore-js/` and `nextjs/`.
 They exist to be read, so clarity beats cleverness everywhere in this repository.
 
 ## The rule that breaks most often
@@ -207,6 +208,40 @@ with an **explicit 10-second timeout**, because reqwest has no default one at al
 five lines, taking the **last** element: nginx appends the address it saw, so that is the one
 element the caller could not choose.
 
+## .NET, in `dotnet-aspnetcore-js/` only
+
+ASP.NET Core brings a static file server, a parameter binder and a development mode that all want
+what this page does not. Four rules, each explained where it is enforced:
+
+- **The bare prefix is redirected in middleware, not by a route.** ASP.NET Core's endpoint matcher
+  ignores a trailing slash, so `{prefix}` and `{prefix}/` reach the same endpoint and the views'
+  relative asset URLs would resolve one segment too high. The middleware at the top of `Program.cs`
+  runs before any endpoint and answers an exact `{prefix}` with a `301` — the redirect Go's mux and
+  Tomcat both send by themselves. The page is registered at the bare prefix and served at the
+  trailing-slash form;
+- **nothing in `views/` is templated**, no template engine is referenced and none should be. Both
+  pages are `<EmbeddedResource>`s written out byte for byte, so the artefact is one assembly, and
+  `config.js` is the only generated thing. `public/` goes out through a four-name allowlist and
+  `UseStaticFiles` is never called: left to itself the framework would serve the client scripts a
+  second way, at the root rather than under `BASE_PATH` and with caching headers of its own, which
+  is what `spring.web.resources.add-mappings` and Sinatra's `static` exist to turn off;
+- **the environment is pinned to `Production`** in `WebApplicationOptions`, never taken from
+  `ASPNETCORE_ENVIRONMENT`. The developer exception page is a stack trace behind a payment page,
+  and its injected inline script would breach the Content-Security-Policy too — the same reason
+  Flask's `debug` stays off. Settings are loaded and validated in `Main`, before the listener is
+  opened, so `dotnet build` and `dotnet test` need no credentials;
+- the signature encoder is **hand-written RFC 3986**, never a form encoder: `+` for a space, and
+  `!'()*` left alone, are what a form encoder does and what the gateway rejects. The Sale body
+  *is* form encoded — that is what `FormUrlEncodedContent` is for — and the 3DS callback is parsed
+  off the **body** with `ReadFormAsync`, never off the query, so the four values verified are the
+  four forwarded.
+
+**No NuGet package is referenced by the app**, and reintroducing one is the thing to avoid:
+Kestrel, `HttpClient`, RSA, SHA-1 and `System.Text.Json` all ship with the platform, which is what
+keeps the Go example's property that the integration needs nothing but the standard library. xUnit
+under `tests/` is the only exception and is not published. `X-Forwarded-For` is read by hand, five
+lines, taking the **first** element, as every example but the axum one does.
+
 ## Frontend constraints
 
 Everywhere:
@@ -249,6 +284,10 @@ cd ruby-sinatra-js    && ruby -c *.rb config.ru test/*.rb && ruby test/all.rb
 cd java-springboot-js && ./mvnw -B -Perrorprone compile && ./mvnw -B verify
 cd rust-axum-js       && cargo fmt --check && cargo clippy --all-targets -- -D warnings \
                       && cargo test && cargo build --release
+cd dotnet-aspnetcore-js && dotnet format HostedFields.csproj --verify-no-changes \
+                      && dotnet format tests/HostedFields.Tests.csproj --verify-no-changes \
+                      && dotnet build HostedFields.csproj -c Release \
+                      && dotnet test tests/HostedFields.Tests.csproj
 cd nextjs             && yarn install && yarn lint && yarn build
 ```
 
@@ -263,9 +302,10 @@ the checks above** — it needs every toolchain, a browser and a `next build`.
 ```bash
 cd e2e-tests && npm test        # or test:go / test:express / test:php / test:python /
                                 #    test:ruby / test:java / test:rust / test:nextjs
+cd e2e-tests && npm run test:dotnet   # .NET only, and never part of a bare `npm test`
 ```
 
-Four things about it are load-bearing:
+Five things about it are load-bearing:
 
 - **It is a standalone npm project.** Playwright is never added to an app's `package.json`: the
   dependency lists in `nodejs-express-js/` and `nextjs/` are deliberately minimal, and that is
@@ -276,6 +316,9 @@ Four things about it are load-bearing:
   probably found something.
 - **`API_URL` and `SDK_URL` must name the same origin**, because each app builds its
   Content-Security-Policy from `SDK_URL` and the card fields are iframes from that host.
+- **`dotnet-aspnetcore-js` is opt-in.** It carries `onRequestOnly: true` in `src/apps.ts`, so a
+  bare `npm test` leaves it out and `npm run test:dotnet` is what runs it. A missing toolchain is a
+  hard failure here rather than a skip, and the .NET SDK is the newest of the ones the suite wants.
 - **`e2e-tests/src/sdk/` is not a `shared/` file.** It is a stand-in for the bundle the gateway
   serves, written in the same ES5 style as `public/`, and `scripts/sync-shared.sh` does not touch
   it.

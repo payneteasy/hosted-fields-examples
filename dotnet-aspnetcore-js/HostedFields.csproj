@@ -1,0 +1,58 @@
+<!-- The Hosted Fields example on ASP.NET Core. A port of ../go-js, file for file.
+
+     No NuGet package is referenced, and none should be: the point of the example is that the
+     integration needs nothing but the platform. Everything it uses — Kestrel, HttpClient, RSA,
+     SHA-1, System.Text.Json — ships with .NET. -->
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>HostedFields</RootNamespace>
+    <!-- Named like the Java example's jar, so the artefact says which example it is -->
+    <AssemblyName>hosted-fields-example-dotnet</AssemblyName>
+
+    <!-- Explicit, because the example is written to be read: every file lists what it uses,
+         the way the Go original lists its imports. -->
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- The counterpart of `go vet -D warnings`: the SDK's analysers are on by default, and
+         nothing they find is allowed to be a warning somebody scrolls past. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- The tests are a project of their own under tests/, and the Web SDK would otherwise
+         compile their sources into the app. -->
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
+    <!-- There is no wwwroot and nothing is served by the framework: public/ goes out through
+         the allowlist in Program.cs and nowhere else. See CLAUDE.md. -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+
+    <!-- The release archive is framework-dependent and platform-neutral, like the Java one:
+         no apphost means no binary built for whichever runner happened to publish it. -->
+    <UseAppHost>false</UseAppHost>
+    <!-- No culture-specific formatting anywhere in the app, and one less thing (ICU) for a
+         container to have to carry. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="tests/**" />
+    <None Remove="tests/**" />
+  </ItemGroup>
+
+  <!-- views/ and public/ travel inside the assembly, the analogue of Go's //go:embed and of the
+       pages packaged into the Java example's jar: what is published is one artefact with no files
+       beside it, and there is nothing to edit on a server.
+
+       LogicalName is what makes the resource names readable paths — "views/checkout.html" rather
+       than the mangled default — so Program.cs can ask for them by the name they have on disk.
+       Both directories stay synced copies of shared/: edit there, run scripts/sync-shared.sh. -->
+  <ItemGroup>
+    <EmbeddedResource Include="views\*">
+      <LogicalName>views/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="public\*">
+      <LogicalName>public/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>
