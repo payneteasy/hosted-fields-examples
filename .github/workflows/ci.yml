@@ -103,6 +103,30 @@ jobs:
       # jobs. No credentials: the tests stub the environment settings.py validates at import.
       - run: python -m unittest discover -s tests -t .
 
+  ruby:
+    name: ruby-sinatra-js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ruby-sinatra-js
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+          bundler-cache: true
+          working-directory: ruby-sinatra-js
+
+      # There is no build step, so checking every file parses is the whole static check — the
+      # counterpart of gofmt, `node --check`, `php -l` and compileall
+      - name: ruby -c
+        run: ruby -c app.rb config.ru settings.rb oauth.rb control.rb paynet.rb test/*.rb
+
+      # The OAuth base string and the 3DS callback checksum, on the same vectors as the other
+      # jobs. No bundle exec: minitest is a bundled gem the bundle does not name, and these tests
+      # touch no gem at all. No credentials either — they stub what settings.rb validates.
+      - run: ruby test/all.rb
+
   nextjs:
     name: nextjs
     runs-on: ubuntu-latest
