@@ -86,24 +86,32 @@ app.Use(async (context, next) =>
 // The payment page is registered at the bare prefix and reached at the trailing-slash form: the
 // matcher ignores a trailing slash on the request path, and the middleware above has already sent
 // anyone who asked for the bare form to `{prefix}/`.
-app.MapGet(basePath, Checkout);
-app.MapGet(basePath + "/config.js", ConfigJs);
-app.MapGet(basePath + "/result-config.js", ResultConfigJs);
+//
+// MapMethods rather than MapGet throughout: minimal APIs map exactly the verb named, and a GET
+// route that answers 405 to HEAD would be this example alone — Go's ServeMux, Express and the
+// rest all serve HEAD from their GET route, and a health check that uses it should not have to
+// know which language is behind the prefix.
+Get(basePath, Checkout);
+Get(basePath + "/config.js", ConfigJs);
+Get(basePath + "/result-config.js", ResultConfigJs);
 app.MapPost(basePath + "/pay", Pay);
-app.MapGet(basePath + "/status", Status);
+Get(basePath + "/status", Status);
 // The gateway returns the payer from a 3DS challenge with a POST, not a GET, so the callback and
 // the page it sends them to are separate routes.
 app.MapMethods(basePath + "/result/callback", ["GET", "POST"], ResultCallback);
-app.MapGet(basePath + "/result", Result);
+Get(basePath + "/result", Result);
 // Stylesheet and client scripts. A literal segment beats a parameter in ASP.NET Core's route
 // matching, so the routes above are not shadowed by this one.
-app.MapGet(basePath + "/{file}", PublicFile);
+Get(basePath + "/{file}", PublicFile);
 
 log.LogInformation("listening on {Url}", settings.LocalUrl);
 app.Run();
 // Run returns when the host stops. The exit code is explicit because the settings check above
 // returns 1, which makes this entry point an int-returning one.
 return 0;
+
+// Kestrel drops the body of a HEAD response itself, so the handlers need to know nothing about it
+void Get(string pattern, Delegate handler) => app.MapMethods(pattern, ["GET", "HEAD"], handler);
 
 Task Checkout(HttpContext context) => ServeView(context, "checkout.html");
 
