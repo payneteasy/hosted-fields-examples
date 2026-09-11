@@ -32,6 +32,10 @@ import {
  *  binaries of its own that nothing here should overwrite. */
 const GO_BINARY_OUT = join(TMP_DIR, 'hosted-fields-example-go');
 
+/** The Go + React example, likewise — and its browser half is built first, into its own
+ *  web/dist, because //go:embed needs the files before the compiler runs. */
+const GO_REACT_BINARY_OUT = join(TMP_DIR, 'hosted-fields-example-go-react');
+
 /** The Rust example's target directory, for the same reason — and cargo would otherwise leave a
  *  multi-gigabyte target/ inside the app. --target-dir puts it here instead. */
 const RUST_TARGET_DIR = join(TMP_DIR, 'rust-axum-target');
@@ -54,7 +58,7 @@ export interface AppUnderTest {
   /** Playwright project name, and the directory the app lives in. */
   name: string;
   /** Its service in docker-compose.yml. The docker mode starts only the ones a run asks for,
-   *  rather than building all ten to exercise one. */
+   *  rather than building all eleven to exercise one. */
   service: string;
   port: number;
   /** Left at each app's own default: overriding it would mean rebuilding nextjs. */
@@ -201,6 +205,25 @@ export const APPS: AppUnderTest[] = [
       `${JSON.stringify(goBinary())} build -o ${JSON.stringify(GO_BINARY_OUT)} . ` +
       `&& cd ${JSON.stringify(TMP_DIR)} && exec ${JSON.stringify(GO_BINARY_OUT)}`,
     env: gatewayEnv(4011),
+  },
+  {
+    name: 'go-react',
+    service: 'go-react',
+    port: 4022,
+    basePath: '/hosted-fields-examples-go-react',
+    cwd: join(REPO_ROOT, 'go-react'),
+    // Two builds, in order: `yarn build` writes web/dist, then //go:embed puts it in the binary.
+    // `yarn install` is not run here — the app's own README says to run it once, the way the
+    // nextjs entry below assumes node_modules is already there. Then the same trick as go-js:
+    // exec'd from .tmp so `go run` leaves no grandchild on the port and go-react/.env is out of
+    // reach. BASE_PATH needs no pin: nothing about the prefix is in web/dist.
+    command:
+      `yarn --cwd web build && ${JSON.stringify(goBinary())} ` +
+      `build -o ${JSON.stringify(GO_REACT_BINARY_OUT)} . ` +
+      `&& cd ${JSON.stringify(TMP_DIR)} && exec ${JSON.stringify(GO_REACT_BINARY_OUT)}`,
+    env: gatewayEnv(4022),
+    // It builds twice before it listens
+    startTimeout: 300_000,
   },
   {
     name: 'nodejs-express-js',
@@ -413,7 +436,7 @@ export function startedApps(): AppUnderTest[] {
 }
 
 /**
- * Where this app answers. Natively that is its own port; behind compose all ten share the one
+ * Where this app answers. Natively that is its own port; behind compose all eleven share the one
  * nginx origin and are told apart by their BASE_PATH — which is the whole reason the specs go
  * through this function and appUrl() rather than naming a port.
  */
