@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+ruby '>= 3.1'
+
+# Sinatra is the point of the example. puma and rackup are what serve it — Sinatra 4 runs on
+# Rack 3 and brings no handler of its own, so they are the counterpart of Flask's gunicorn
+# rather than extras.
+gem 'puma', '~> 6.4'
+gem 'rackup', '~> 2.2'
+gem 'sinatra', '~> 4.1'
+
+# Nothing else, and nothing at all for the integration: openssl signs the calls, net/http makes
+# them, and json, digest, securerandom and minitest are all in the standard library.

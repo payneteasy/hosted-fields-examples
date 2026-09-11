@@ -1,0 +1,38 @@
+# /etc/systemd/system/hosted-fields-examples-ruby.service
+
+[Unit]
+Description=Hosted Fields example (Ruby + Sinatra)
+Documentation=https://doc.payneteasy.com/integration/api_use_cases/hosted_fields.html
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hosted-fields
+Group=hosted-fields
+WorkingDirectory=/opt/hosted-fields-examples-ruby
+
+# One variable per line, no multi-line values — hence PRIVATE_KEY_PATH rather than PRIVATE_KEY
+EnvironmentFile=/etc/hosted-fields-examples-ruby.env
+# The gems are vendored into the app directory by `bundle install --deployment`, so bundler needs
+# no writable home and finds them without a config of its own
+Environment=BUNDLE_PATH=/opt/hosted-fields-examples-ruby/vendor/bundle
+Environment=BUNDLE_WITHOUT=development:test
+
+# puma, not `ruby app.rb`: that branch is Sinatra's development server. systemd expands the two
+# names from the EnvironmentFile, so the port is configured in one place for both.
+ExecStart=/usr/local/bin/bundle exec puma --bind tcp://${LISTEN_ADDR}:${PORT} config.ru
+
+Restart=on-failure
+RestartSec=5s
+
+# The app reads one key file, writes nothing and listens on loopback only
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/hosted-fields-examples-ruby
+RestrictAddressFamilies=AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target
