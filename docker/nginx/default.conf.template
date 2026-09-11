@@ -3,14 +3,14 @@
 # It deliberately contains no routing of its own. Each app's own deploy/nginx.conf — the file
 # that ships in its release archive and that its README tells you to install — is mounted into
 # conf.d/apps/ and included here unchanged. That is the point of this setup as much as the
-# convenience is: those ten files are otherwise documentation with nothing to check them.
+# convenience is: those eleven files are otherwise documentation with nothing to check them.
 #
 # They say `proxy_pass http://127.0.0.1:300x`, and they work here verbatim because every app
 # container shares this container's network namespace. See the comment in docker-compose.yml.
 #
 # A .template, because the listen port is a variable: the nginx image's entrypoint runs envsubst
 # over /etc/nginx/templates/*.template on startup and writes the result to conf.d/. It rewrites
-# every $name it finds, so this file holds no nginx variable of its own — and the ten mounted
+# every $name it finds, so this file holds no nginx variable of its own — and the eleven mounted
 # snippets are not templates, which is what keeps their $host and $proxy_add_x_forwarded_for
 # intact.
 
@@ -18,7 +18,7 @@ server {
     listen ${NGINX_PORT};
     server_name _;
 
-    # The ten prefixes, byte for byte as each example ships them
+    # The eleven prefixes, byte for byte as each example ships them
     include /etc/nginx/conf.d/apps/*.conf;
 
     # A front door for the demo. Not part of any example: the payment pages all live under a

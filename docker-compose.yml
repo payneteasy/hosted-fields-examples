@@ -10,19 +10,19 @@
 #    app's own deploy/nginx.conf — the file it ships and its README tells you to install — be
 #    mounted here unchanged: those say `proxy_pass http://127.0.0.1:300x`, and inside one shared
 #    namespace that is exactly where the app is. The alternative, service names and
-#    LISTEN_ADDR=0.0.0.0, would mean ten second copies of those files, drifting quietly.
+#    LISTEN_ADDR=0.0.0.0, would mean eleven second copies of those files, drifting quietly.
 #
 #    It also means the apps keep their shipped LISTEN_ADDR=127.0.0.1 default, that nginx needs no
-#    DNS and so starts before the apps do, and that ports 3000-3009 stay free on your machine.
+#    DNS and so starts before the apps do, and that ports 3000-3010 stay free on your machine.
 #
 #    The price, and it is worth knowing before you hit it: a service in a shared namespace may
-#    not declare `ports`, `networks` or `hostname`, and the ten hold a handle on the namespace
+#    not declare `ports`, `networks` or `hostname`, and the eleven hold a handle on the namespace
 #    nginx owns — so `docker compose restart` leaves some of them without a network. Restart the
 #    stack, never one service:
 #
 #        docker compose up -d --force-recreate       # or: down, then up -d
 #
-# 2. One .env and one private_key.pem for all ten. PUBLIC_URL is the nginx origin rather than
+# 2. One .env and one private_key.pem for all eleven. PUBLIC_URL is the nginx origin rather than
 #    any app's own port, because it is what builds the 3DS return URL the payer's browser is sent
 #    to — each app appends its own BASE_PATH to it. HTTP_PORT drives the published port, nginx's
 #    own listen port and PUBLIC_URL at once, so the three cannot disagree.
@@ -30,12 +30,12 @@
 # This is a demo, not a deployment. It speaks plain HTTP and publishes nginx on a local port.
 #
 # It has a second job: e2e-tests/ runs the same specs against these containers rather than
-# against ten natively started apps. That mode reads docker-compose.e2e.yml on top of this
+# against eleven natively started apps. That mode reads docker-compose.e2e.yml on top of this
 # file — which is why env_file is optional here, so a run that passes every setting through
 # `environment:` needs no .env and no key at the repository root.
 
-# What every app service shares. Spelled once: ten copies of the same five lines is ten places
-# for one of them to quietly differ.
+# What every app service shares. Spelled once: eleven copies of the same five lines is eleven
+# places for one of them to quietly differ.
 x-app: &app
   env_file:
     - path: .env
@@ -65,7 +65,7 @@ services:
       - ./docker/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./docker/nginx/index.html:/usr/share/nginx/html/index.html:ro
 
-      # The ten shipped snippets, unmodified. A diff here is a real bug in a release archive.
+      # The eleven shipped snippets, unmodified. A diff here is a real bug in a release archive.
       - ./go-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/go.conf:ro
       - ./nodejs-express-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/nodejs-express-js.conf:ro
       - ./php-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/php.conf:ro
@@ -137,8 +137,8 @@ services:
     build:
       context: ./nextjs
       # basePath is baked in by `next build`, so it has to be known here as well as at runtime.
-      # Change it and you have to rebuild this one image; the other eight read BASE_PATH at
-      # startup.
+      # Change it and you have to rebuild this one image; every other example, go-react
+      # included, reads BASE_PATH at startup.
       args:
         BASE_PATH: /hosted-fields-examples-nextjs
     environment:

@@ -3,11 +3,11 @@
 #     docker compose -p hosted-fields-examples-e2e \
 #       -f docker-compose.yml -f docker-compose.e2e.yml up --build
 #
-# e2e-tests/ normally starts the ten apps itself, which needs ten toolchains installed. This
+# e2e-tests/ normally starts the eleven apps itself, which needs ten toolchains installed. This
 # file is the other way to run exactly the same specs: against the containers, so the only thing
 # that has to be installed is Docker. `cd e2e-tests && npm run test:docker`.
 #
-# It reuses the ten services and the ten mounted deploy/nginx.conf from the base file rather
+# It reuses the eleven services and the eleven mounted deploy/nginx.conf from the base file rather
 # than restating them — that is the whole point of an override here — and changes four things.
 #
 # 1. A different project name (-p above), so this stack and the demo one can be up at once
@@ -35,7 +35,7 @@
 # 4. No .env and no private_key.pem at the repository root are needed. The base file's env_file
 #    is optional, and this one supplies the key from e2e-tests/.tmp/.
 
-# The ten identical blocks, spelled once — as x-app does in the base file.
+# The eleven identical blocks, spelled once — as x-app does in the base file.
 x-e2e-app: &e2e-app
   # The root .env is the demo's — real credentials, a real gateway. !override replaces the base
   # file's list rather than adding to it, so nothing from that file reaches a test run at all.
