@@ -1,0 +1,28 @@
+{
+  "name": "hosted-fields-examples-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local end-to-end tests: the three examples driven through a browser against a fake gateway",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:go": "playwright test --project=go-js",
+    "test:express": "playwright test --project=nodejs-express-js",
+    "test:nextjs": "playwright test --project=nextjs",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "browser": "playwright install chromium",
+    "emulator": "node src/emulator/main.ts",
+    "lint": "biome check && tsc --noEmit",
+    "format": "biome check --fix && biome format --write"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.13",
+    "@playwright/test": "1.61.1",
+    "@types/node": "22.20.2",
+    "typescript": "6.0.3"
+  }
+}
