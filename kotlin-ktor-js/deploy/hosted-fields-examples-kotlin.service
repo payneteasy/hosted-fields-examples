@@ -1,0 +1,32 @@
+# /etc/systemd/system/hosted-fields-examples-kotlin.service
+
+[Unit]
+Description=Hosted Fields example (Kotlin, Ktor)
+Documentation=https://doc.payneteasy.com/integration/api_use_cases/hosted_fields.html
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hosted-fields
+Group=hosted-fields
+WorkingDirectory=/opt/hosted-fields-examples-kotlin
+
+# One variable per line, no multi-line values — hence PRIVATE_KEY_PATH rather than PRIVATE_KEY
+EnvironmentFile=/etc/hosted-fields-examples-kotlin.env
+# The pages and the client scripts are inside the jar, so this is the whole application
+ExecStart=/usr/bin/java -jar /opt/hosted-fields-examples-kotlin/hosted-fields-example-kotlin.jar
+
+Restart=on-failure
+RestartSec=5s
+
+# The app reads one key file, writes nothing and listens on loopback only
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/hosted-fields-examples-kotlin
+RestrictAddressFamilies=AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

@@ -157,6 +157,35 @@ jobs:
       # initialisation, so nothing here needs any.
       - run: ./mvnw -B verify
 
+  kotlin:
+    name: kotlin-ktor-js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kotlin-ktor-js
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+
+      # gradle-wrapper.jar is the one binary in this repository — Gradle has no script-only
+      # wrapper the way Maven does — so its checksum is verified rather than trusted. The
+      # distribution the wrapper then fetches is pinned by SHA-256 in gradle-wrapper.properties.
+      - uses: gradle/actions/wrapper-validation@v6
+
+      # ktlint is the counterpart of gofmt, and `allWarningsAsErrors` in build.gradle.kts is the
+      # nearest thing Kotlin has to `go vet`. ./gradlew, so the Gradle version is the committed
+      # one and not whatever the runner ships.
+      - run: ./gradlew ktlintCheck
+
+      # The OAuth base string and the 3DS callback checksum, on the same vectors as the other
+      # jobs, and then the jar. No credentials: the settings are validated in main(), not at class
+      # initialisation, so nothing here needs any.
+      - run: ./gradlew build buildFatJar
+
   rust:
     name: rust-axum-js
     runs-on: ubuntu-latest

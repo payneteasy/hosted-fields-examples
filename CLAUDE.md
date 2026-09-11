@@ -1,8 +1,8 @@
 # Hosted Fields examples
 
-Nine merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
-`python-flask-js/`, `ruby-sinatra-js/`, `java-springboot-js/`, `rust-axum-js/`,
-`dotnet-aspnetcore-js/` and `nextjs/`.
+Ten merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
+`python-flask-js/`, `ruby-sinatra-js/`, `java-springboot-js/`, `kotlin-ktor-js/`,
+`rust-axum-js/`, `dotnet-aspnetcore-js/` and `nextjs/`.
 They exist to be read, so clarity beats cleverness everywhere in this repository.
 
 ## The rule that breaks most often
@@ -178,6 +178,44 @@ wants none of the three. Four rules, each explained where it is enforced:
   `@RequestParam`, which the servlet container fills from the query string too, so the four values
   verified would not be the four forwarded.
 
+## Ktor, in `kotlin-ktor-js/` only
+
+Ktor brings almost nothing along, which is the point — and the two things it does bring, a routing
+table without a context path and a coroutine dispatcher, are exactly where this page can go wrong
+quietly. Four rules, each explained where it is enforced:
+
+- **Ktor has no context path**, so the page is registered at the trailing-slash form — the one the
+  views' relative asset URLs resolve against — and the bare prefix answers a `301` from a route of
+  its own, the redirect Go's mux and Tomcat both send by themselves. `IgnoreTrailingSlash` is
+  deliberately **not** installed: it makes `{prefix}` and `{prefix}/` the same route and takes that
+  redirect away, leaving every asset URL one segment too high. `AutoHeadResponse` *is* installed,
+  because those two answer HEAD wherever they answer GET;
+- **nothing in `views/` is templated**, no template engine is on the classpath and none should be.
+  Both pages are packaged into the fat jar by `processResources` — the analogue of `//go:embed`,
+  so the artefact is one file — and written out byte for byte. `config.js` is the only generated
+  thing, and `views/`, `public/` stay synced copies of `shared/`. **`staticResources` is never
+  installed**: `public/` goes out through a four-name allowlist, which is what
+  `spring.web.resources.add-mappings=false` and Sinatra's `static` exist to turn off;
+- **every gateway call goes out inside `withContext(Dispatchers.IO)`.** `java.net.http`'s `send` is
+  blocking and a Ktor handler runs on a Netty event-loop thread, so a call made the way ordinary
+  JVM code would make it stalls every other request the server is serving — and nothing in a test
+  says so. Settings are loaded and validated in `main`, before the engine is built, so the process
+  refuses to start without credentials and `./gradlew build` needs none;
+- the signature encoder is **hand-written RFC 3986**, never `URLEncoder.encode` and never Ktor's
+  `encodeURLParameter`: `+` for a space, and `!'()*` left alone, are what a form encoder does and
+  what the gateway rejects. `Paynet.formEncode` *is* `URLEncoder`, because the request body really
+  is form encoded — and the 3DS callback is parsed off the **body** by hand, never through
+  `call.receiveParameters()`, so the four values verified are provably the four forwarded.
+
+**`gradle/wrapper/gradle-wrapper.jar` is the one binary in the repository.** Gradle has no
+script-only wrapper the way Maven's `distributionType=only-script` is, and the alternative is
+asking every reader to install Gradle first. The distribution it fetches is pinned by SHA-256 in
+`gradle-wrapper.properties` and CI runs `gradle/actions/wrapper-validation` over the jar, so it is
+verified rather than trusted — regenerating it without the checksum line is the thing to avoid.
+Two dependencies, and no third: Ktor is the subject, kotlinx.serialization is there because the JVM
+has no JSON of its own, and everything the integration itself needs is in the JDK — which is the
+Go example's property, kept.
+
 ## Rust, in `rust-axum-js/` only
 
 axum leaves the routing table honest but has one shape of its own, and the crate ecosystem has
@@ -282,6 +320,7 @@ cd python-flask-js    && python -m compileall -q -x '(\.venv|__pycache__)' . \
                       && python -m unittest discover -s tests -t .
 cd ruby-sinatra-js    && ruby -c *.rb config.ru test/*.rb && ruby test/all.rb
 cd java-springboot-js && ./mvnw -B -Perrorprone compile && ./mvnw -B verify
+cd kotlin-ktor-js     && ./gradlew ktlintCheck && ./gradlew build buildFatJar
 cd rust-axum-js       && cargo fmt --check && cargo clippy --all-targets -- -D warnings \
                       && cargo test && cargo build --release
 cd dotnet-aspnetcore-js && dotnet format HostedFields.csproj --verify-no-changes \
@@ -297,14 +336,14 @@ The first line is what CI runs — see `.github/workflows/ci.yml`.
 
 `e2e-tests/` starts a fake gateway on one origin, points every app at it with environment
 variables and drives a browser through the payment. It is **local only and not part of CI or of
-the checks above** — it needs a browser, a `next build` and either nine toolchains or Docker.
+the checks above** — it needs a browser, a `next build` and either ten toolchains or Docker.
 
 ```bash
 cd e2e-tests && npm test        # or test:go / test:express / test:php / test:python /
-                                #    test:ruby / test:java / test:rust / test:nextjs
+                                #    test:ruby / test:java / test:kotlin / test:rust / test:nextjs
 cd e2e-tests && npm run test:dotnet   # .NET only, and never part of a bare `npm test`
 
-cd e2e-tests && npm run test:docker   # the same specs against docker-compose.yml — all nine
+cd e2e-tests && npm run test:docker   # the same specs against docker-compose.yml — all ten
 cd e2e-tests && npm run test:docker:java   # or one, by the same short names
 ```
 
@@ -313,11 +352,11 @@ through `appOrigin()` / `appUrl()`, which return its own port natively and the s
 plus its `BASE_PATH` behind compose. `E2E_TARGET=docker` is what switches, and
 `playwright.docker.config.ts` sets the rest of the difference:
 
-- **the docker mode runs all nine, .NET included.** `onRequestOnly` is about a toolchain that
+- **the docker mode runs all ten, .NET included.** `onRequestOnly` is about a toolchain that
   might be missing, and Docker supplies all of them — so that flag is read only in the native
   mode, which is what `startedApps()` in `src/apps.ts` decides;
 - **`docker-compose.e2e.yml` is an override, never a second stack.** It is read on top of
-  `docker-compose.yml`, so the nine services and the nine mounted `deploy/nginx.conf` are not
+  `docker-compose.yml`, so the ten services and the ten mounted `deploy/nginx.conf` are not
   restated. It changes four things: its own project name, so a demo stack and a test run can be up
   at once; nginx on **4020** and the emulator published on **4010**; the e2e settings through
   `environment:`, with the base file's `env_file` dropped so a root `.env` with real credentials
@@ -356,13 +395,13 @@ Five things about the suite are load-bearing in both modes:
 The native mode rebuilds `nextjs/.next`, because `basePath` is baked in at build time. The docker
 mode builds it inside the image and leaves the working tree alone.
 
-## All nine at once, in `docker-compose.yml`
+## All ten at once, in `docker-compose.yml`
 
-`docker compose up --build` builds nine images and runs them behind one nginx on `:8080`. It
+`docker compose up --build` builds ten images and runs them behind one nginx on `:8080`. It
 exists for three reasons, and the second is the one to protect:
 
 - no toolchain to install;
-- **it is the only thing that ever executes the nine `deploy/nginx.conf`.** Those files ship in
+- **it is the only thing that ever executes the ten `deploy/nginx.conf`.** Those files ship in
   the release archives and the READMEs tell people to install them, and until this they were
   documentation with nothing to check them;
 - it is what `e2e-tests/` runs its second mode against, so a browser test of any example needs
@@ -372,19 +411,19 @@ exists for three reasons, and the second is the one to protect:
 That second reason is what fixes the shape of the file. Every app service joins the nginx
 container's network namespace (`network_mode: "service:nginx"`), so the snippets' own
 `proxy_pass http://127.0.0.1:300x` is true inside it and they are mounted **unmodified**. Service
-names and `LISTEN_ADDR=0.0.0.0` would have been the ordinary answer and would have meant nine
+names and `LISTEN_ADDR=0.0.0.0` would have been the ordinary answer and would have meant ten
 second copies, drifting silently — the one thing `shared/` exists to prevent. Keep the mounts
 read-only and keep them pointing at `*/deploy/nginx.conf`.
 
 Four consequences worth knowing before editing it: a service in a shared namespace may not
-declare `ports`, `networks` or `hostname`; **`docker compose restart` does not work** — the nine
+declare `ports`, `networks` or `hostname`; **`docker compose restart` does not work** — the ten
 hold a handle on the namespace nginx owns, so restarting leaves some of them without a network and
 `up -d --force-recreate` is the way; the root `.env` must carry **no `PORT`, `LISTEN_ADDR` or
-`BASE_PATH`** — all nine read that one file, and every example already defaults to its own port
+`BASE_PATH`** — all ten read that one file, and every example already defaults to its own port
 and prefix; and **`HTTP_PORT` is one variable driving three things** — the published port, nginx's
 own `listen`, and the port in `PUBLIC_URL`. That is why `docker/nginx/default.conf.template` is a
 template: the nginx image's entrypoint runs `envsubst` over `/etc/nginx/templates/*.template`, so
-the file may hold no nginx variable of its own, and the nine mounted snippets are not templates,
+the file may hold no nginx variable of its own, and the ten mounted snippets are not templates,
 which is what keeps their `$host` and `$proxy_add_x_forwarded_for` intact. `env_file` is
 `required: false` so a run that passes every setting through `environment:` needs no root `.env`
 and no key at the repository root.
@@ -395,7 +434,7 @@ blind to compose's environment. Its `Dockerfile` writes a compose pool instead, 
 comment exactly which two lines differ and why. `nextjs` is the only one needing a build argument,
 because `next build` bakes `basePath` in.
 
-**This is what a ninth language now costs**, on top of the one line in `scripts/sync-shared.sh`:
+**This is what a tenth language now costs**, on top of the one line in `scripts/sync-shared.sh`:
 a `Dockerfile`, a `.dockerignore`, a service in `docker-compose.yml` and a mount line for its
 snippet. Images are not built in CI.
 

@@ -1,0 +1,15 @@
+<!-- The log line every other example prints: a timestamp and the message, and nothing else.
+     Ktor's own startup chatter is left at WARN so the two lines this app logs stand out. -->
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{yyyy/MM/dd HH:mm:ss} %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+  <logger name="io.ktor" level="WARN"/>
+  <logger name="io.netty" level="WARN"/>
+</configuration>

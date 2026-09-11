@@ -99,6 +99,10 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # The Kotlin example builds with ./gradlew on the JDK set up above; this only brings the
+      # caching and the wrapper's own validation with it.
+      - uses: gradle/actions/setup-gradle@v6
+
       # views/ and public/ are compiled in with go:embed, so a release is one binary per platform
       # and nothing else has to travel with it. deploy/ ships only with linux: a systemd unit and
       # an nginx snippet mean nothing on a laptop, where these builds are for trying the example.
@@ -208,6 +212,20 @@ jobs:
           tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
           rm -rf "../dist-release/${dir:?}"
 
+      # The same again, and for the same reason: one fat jar with the pages inside it.
+      - name: kotlin-ktor-js
+        working-directory: kotlin-ktor-js
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="hosted-fields-examples-kotlin"
+          dir="${name}_${tag}"
+          ./gradlew -q buildFatJar
+          mkdir -p "../dist-release/$dir"
+          cp build/libs/hosted-fields-example-kotlin.jar .env.example README.md "../dist-release/$dir/"
+          cp -r deploy "../dist-release/$dir/"
+          tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
+          rm -rf "../dist-release/${dir:?}"
+
       # The pages and the client scripts are embedded resources, so like the jar above this
       # artefact is self-contained. The publish is framework-dependent and carries no apphost, so
       # the one archive runs on every platform a .NET 10 runtime does.
@@ -284,6 +302,9 @@ jobs:
             - `hosted-fields-examples-java.tar.gz` — one jar with the pages inside it, plus
               `deploy/`. Needs a JRE 21+ and nothing else: `java -jar
               hosted-fields-example-java.jar`.
+            - `hosted-fields-examples-kotlin.tar.gz` — one jar with the pages inside it, plus
+              `deploy/`. Needs a JRE 21+ and nothing else: `java -jar
+              hosted-fields-example-kotlin.jar`.
             - `hosted-fields-examples-rust_linux_*.tar.gz` — one binary with the pages compiled
               in, plus `deploy/`. Needs a glibc-based Linux and nothing else.
             - `hosted-fields-examples-rust_darwin_arm64.tar.gz`,
