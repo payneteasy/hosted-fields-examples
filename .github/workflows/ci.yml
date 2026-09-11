@@ -253,6 +253,47 @@ jobs:
       # this very command's output
       - run: dotnet publish HostedFields.csproj -c Release
 
+  go-react:
+    name: go-react
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go-react
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: yarn
+          cache-dependency-path: go-react/web/yarn.lock
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: false
+
+      # The browser half first: //go:embed needs web/dist before the compiler runs, and the
+      # repository commits only web/dist/.gitkeep.
+      - run: yarn install --frozen-lockfile
+        working-directory: go-react/web
+      # biome check + tsc over both projects + steiger
+      - run: yarn lint
+        working-directory: go-react/web
+      # No credentials, and no BASE_PATH: nothing about the prefix is compiled into the bundle
+      - run: yarn build
+        working-directory: go-react/web
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:"; echo "$unformatted"; exit 1
+          fi
+
+      - run: go vet ./...
+      # The same OAuth and callback vectors as the go-js job, over its own copy of the two files
+      - run: go test ./...
+      - run: go build ./...
+
   nextjs:
     name: nextjs
     runs-on: ubuntu-latest
