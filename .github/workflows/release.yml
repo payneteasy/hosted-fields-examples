@@ -25,21 +25,31 @@ jobs:
           cache: npm
           cache-dependency-path: nodejs-express-js/package-lock.json
 
-      # views/ and public/ are compiled in with go:embed, so a release is one binary per
-      # architecture plus the deployment templates. Nothing else has to travel with it.
+      # views/ and public/ are compiled in with go:embed, so a release is one binary per platform
+      # and nothing else has to travel with it. deploy/ ships only with linux: a systemd unit and
+      # an nginx snippet mean nothing on a laptop, where these builds are for trying the example.
       - name: go-js
         working-directory: go-js
         env:
           CGO_ENABLED: '0'
-          GOOS: linux
         run: |
           tag="${GITHUB_REF_NAME}"
-          for arch in amd64 arm64; do
-            out="hosted-fields-examples-go_${tag}_linux_${arch}"
+          for target in linux/amd64 linux/arm64 darwin/arm64 windows/amd64; do
+            os="${target%/*}"; arch="${target#*/}"
+            out="hosted-fields-examples-go_${tag}_${os}_${arch}"
+            bin="hosted-fields-examples-go"
+            if [ "$os" = windows ]; then bin="$bin.exe"; fi
+
             mkdir -p "../dist-release/$out"
-            GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "../dist-release/$out/hosted-fields-examples-go" .
-            cp -r deploy "../dist-release/$out/"
-            tar -czf "../dist-release/$out.tar.gz" -C ../dist-release "$out"
+            GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "../dist-release/$out/$bin" .
+            if [ "$os" = linux ]; then cp -r deploy "../dist-release/$out/"; fi
+
+            # zip for Windows, tar.gz everywhere else — whatever the target unpacks without extra tools
+            if [ "$os" = windows ]; then
+              (cd ../dist-release && zip -qr "$out.zip" "$out")
+            else
+              tar -czf "../dist-release/$out.tar.gz" -C ../dist-release "$out"
+            fi
             rm -rf "../dist-release/${out:?}"
           done
 
@@ -60,12 +70,13 @@ jobs:
 
       - name: checksums
         working-directory: dist-release
-        run: sha256sum *.tar.gz > SHA256SUMS
+        run: sha256sum *.tar.gz *.zip > SHA256SUMS
 
       - uses: softprops/action-gh-release@v3
         with:
           files: |
             dist-release/*.tar.gz
+            dist-release/*.zip
             dist-release/SHA256SUMS
           generate_release_notes: true
           body: |
@@ -73,6 +84,10 @@ jobs:
 
             - `hosted-fields-examples-go_*_linux_*.tar.gz` — one static binary with the pages
               embedded, plus `deploy/`. Needs no runtime.
+            - `hosted-fields-examples-go_*_darwin_arm64.tar.gz`,
+              `hosted-fields-examples-go_*_windows_amd64.zip` — the same binary for trying the
+              example on a laptop. No `deploy/`: the systemd unit and the nginx snippet are for
+              a Linux server.
             - `hosted-fields-examples-nodejs-express-js_*.tar.gz` — bundled `server.js` with
               `public/`, `views/` and `deploy/`. Needs Node 20+, no `node_modules`.
 
