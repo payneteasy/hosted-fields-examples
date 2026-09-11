@@ -297,43 +297,77 @@ The first line is what CI runs — see `.github/workflows/ci.yml`.
 
 `e2e-tests/` starts a fake gateway on one origin, points every app at it with environment
 variables and drives a browser through the payment. It is **local only and not part of CI or of
-the checks above** — it needs every toolchain, a browser and a `next build`.
+the checks above** — it needs a browser, a `next build` and either nine toolchains or Docker.
 
 ```bash
 cd e2e-tests && npm test        # or test:go / test:express / test:php / test:python /
                                 #    test:ruby / test:java / test:rust / test:nextjs
 cd e2e-tests && npm run test:dotnet   # .NET only, and never part of a bare `npm test`
+
+cd e2e-tests && npm run test:docker   # the same specs against docker-compose.yml — all nine
+cd e2e-tests && npm run test:docker:java   # or one, by the same short names
 ```
 
-Five things about it are load-bearing:
+There are **two ways to run the same specs**, and not one spec knows which: they address an app
+through `appOrigin()` / `appUrl()`, which return its own port natively and the shared nginx origin
+plus its `BASE_PATH` behind compose. `E2E_TARGET=docker` is what switches, and
+`playwright.docker.config.ts` sets the rest of the difference:
+
+- **the docker mode runs all nine, .NET included.** `onRequestOnly` is about a toolchain that
+  might be missing, and Docker supplies all of them — so that flag is read only in the native
+  mode, which is what `startedApps()` in `src/apps.ts` decides;
+- **`docker-compose.e2e.yml` is an override, never a second stack.** It is read on top of
+  `docker-compose.yml`, so the nine services and the nine mounted `deploy/nginx.conf` are not
+  restated. It changes four things: its own project name, so a demo stack and a test run can be up
+  at once; nginx on **4020** and the emulator published on **4010**; the e2e settings through
+  `environment:`, with the base file's `env_file` dropped so a root `.env` with real credentials
+  cannot reach a test run; and the key mount re-pointed at `e2e-tests/.tmp/private_key.pem`;
+- **the published port must equal the internal one**, for both 4020 and 4010. The emulator does
+  not read the request's `Host` — `src/emulator/server.ts` rebuilds the signed URL from its own
+  `EMULATOR_ORIGIN` — so one address has to be true in three places: what the app signs, what the
+  emulator computes, and what the browser can reach. The shared network namespace gives that for
+  free only on that condition;
+- **the emulator binds `0.0.0.0` in a container and still advertises `127.0.0.1:4010`.** That is
+  the whole of `EMULATOR_BIND` in `src/settings.ts`: a published port reaches only a server bound
+  to the wildcard, and what is *signed* may not vary with where the socket is;
+- **the emulator stays on its own port, never behind that nginx.** The card fields are iframes
+  from `SDK_URL`, and the cross-origin boundary is what `checkout.spec.ts`'s field-state test and
+  every `frame-src` rule exist to exercise.
+
+Five things about the suite are load-bearing in both modes:
 
 - **It is a standalone npm project.** Playwright is never added to an app's `package.json`: the
   dependency lists in `nodejs-express-js/` and `nextjs/` are deliberately minimal, and that is
   part of what the examples demonstrate.
 - **It changes nothing in an app.** Every setting reaches every server as a process
   environment variable, which wins over `.env` in all of them, so no `.env` is read for those
-  values or written. If a change to an app looks necessary to make a test pass, the test has
-  probably found something.
+  values or written — and in the docker mode through `environment:`, which beats `env_file`. If a
+  change to an app looks necessary to make a test pass, the test has probably found something.
 - **`API_URL` and `SDK_URL` must name the same origin**, because each app builds its
   Content-Security-Policy from `SDK_URL` and the card fields are iframes from that host.
-- **`dotnet-aspnetcore-js` is opt-in.** It carries `onRequestOnly: true` in `src/apps.ts`, so a
-  bare `npm test` leaves it out and `npm run test:dotnet` is what runs it. A missing toolchain is a
-  hard failure here rather than a skip, and the .NET SDK is the newest of the ones the suite wants.
+- **`dotnet-aspnetcore-js` is opt-in natively.** It carries `onRequestOnly: true` in
+  `src/apps.ts`, so a bare `npm test` leaves it out and `npm run test:dotnet` is what runs it. A
+  missing toolchain is a hard failure here rather than a skip, and the .NET SDK is the newest of
+  the ones the suite wants. `npm run test:docker` runs it like any other.
 - **`e2e-tests/src/sdk/` is not a `shared/` file.** It is a stand-in for the bundle the gateway
   serves, written in the same ES5 style as `public/`, and `scripts/sync-shared.sh` does not touch
   it.
 
-Running it rebuilds `nextjs/.next`, because `basePath` is baked in at build time.
+The native mode rebuilds `nextjs/.next`, because `basePath` is baked in at build time. The docker
+mode builds it inside the image and leaves the working tree alone.
 
 ## All nine at once, in `docker-compose.yml`
 
 `docker compose up --build` builds nine images and runs them behind one nginx on `:8080`. It
-exists for two reasons, and the second is the one to protect:
+exists for three reasons, and the second is the one to protect:
 
-- no toolchain to install, which is what `e2e-tests/` still needs nine of;
+- no toolchain to install;
 - **it is the only thing that ever executes the nine `deploy/nginx.conf`.** Those files ship in
   the release archives and the READMEs tell people to install them, and until this they were
-  documentation with nothing to check them.
+  documentation with nothing to check them;
+- it is what `e2e-tests/` runs its second mode against, so a browser test of any example needs
+  Docker and nothing else. `docker-compose.e2e.yml` overrides this file rather than copying it —
+  see *The end-to-end tests* above.
 
 That second reason is what fixes the shape of the file. Every app service joins the nginx
 container's network namespace (`network_mode: "service:nginx"`), so the snippets' own
@@ -342,12 +376,18 @@ names and `LISTEN_ADDR=0.0.0.0` would have been the ordinary answer and would ha
 second copies, drifting silently — the one thing `shared/` exists to prevent. Keep the mounts
 read-only and keep them pointing at `*/deploy/nginx.conf`.
 
-Three consequences worth knowing before editing it: a service in a shared namespace may not
+Four consequences worth knowing before editing it: a service in a shared namespace may not
 declare `ports`, `networks` or `hostname`; **`docker compose restart` does not work** — the nine
 hold a handle on the namespace nginx owns, so restarting leaves some of them without a network and
-`up -d --force-recreate` is the way; and the root `.env` must carry **no `PORT`, `LISTEN_ADDR` or
+`up -d --force-recreate` is the way; the root `.env` must carry **no `PORT`, `LISTEN_ADDR` or
 `BASE_PATH`** — all nine read that one file, and every example already defaults to its own port
-and prefix.
+and prefix; and **`HTTP_PORT` is one variable driving three things** — the published port, nginx's
+own `listen`, and the port in `PUBLIC_URL`. That is why `docker/nginx/default.conf.template` is a
+template: the nginx image's entrypoint runs `envsubst` over `/etc/nginx/templates/*.template`, so
+the file may hold no nginx variable of its own, and the nine mounted snippets are not templates,
+which is what keeps their `$host` and `$proxy_add_x_forwarded_for` intact. `env_file` is
+`required: false` so a run that passes every setting through `environment:` needs no root `.env`
+and no key at the repository root.
 
 `php-js` is the only app whose shipped deploy config cannot be mounted as it is: its pool sets
 `clear_env = yes` and names every setting as an `env[]` line, which is right for a system FPM and
