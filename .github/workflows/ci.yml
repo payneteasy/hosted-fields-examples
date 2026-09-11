@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: go-js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go-js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          # No dependencies, so there is no go.sum to key a cache on
+          cache: false
+
+      # gofmt exits 0 whatever it finds, so the output is what decides
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:"; echo "$unformatted"; exit 1
+          fi
+
+      - run: go vet ./...
+      - run: go build ./...
+
+  node:
+    name: nodejs-express-js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nodejs-express-js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: nodejs-express-js/package-lock.json
+
+      - run: npm ci
+      - run: node --check src/*.js public/*.js
+      - run: npm run build
+
+  shared:
+    # The premise of this repository is that the browser half does not depend on the server, so
+    # the two copies of it have to be identical. Kept honest here rather than by remembering.
+    name: shared frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: identical in both apps
+        run: |
+          for f in public/styles.css public/status.js public/checkout.js; do
+            diff "go-js/$f" "nodejs-express-js/$f"
+          done
+          # The views differ by one line on purpose: each server injects the config with its own
+          # template syntax. Blank that line out and the rest must match exactly.
+          for f in views/checkout.html views/result.html; do
+            diff <(sed 's/window\.CONFIG = .*/window.CONFIG = INJECTED;/' "go-js/$f") \
+                 <(sed 's/window\.CONFIG = .*/window.CONFIG = INJECTED;/' "nodejs-express-js/$f")
+          done
+
+      - name: english only
+        run: |
+          found=$(grep -rlP '[\x{0400}-\x{04FF}]' . \
+            --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist || true)
+          if [ -n "$found" ]; then
+            echo "cyrillic found in:"; echo "$found"; exit 1
+          fi

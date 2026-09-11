@@ -1,0 +1,20 @@
+{
+  "name": "hosted-fields-example-express",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hosted Fields integration example: Node.js + Express + plain JS",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node --env-file=.env src/server.js",
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

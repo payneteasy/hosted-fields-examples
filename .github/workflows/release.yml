@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build artefacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: nodejs-express-js/package-lock.json
+
+      # views/ and public/ are compiled in with go:embed, so a release is one binary per
+      # architecture plus the deployment templates. Nothing else has to travel with it.
+      - name: go-js
+        working-directory: go-js
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          for arch in amd64 arm64; do
+            out="hosted-fields-examples-go_${tag}_linux_${arch}"
+            mkdir -p "../dist-release/$out"
+            GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "../dist-release/$out/hosted-fields-examples-go" .
+            cp -r deploy "../dist-release/$out/"
+            tar -czf "../dist-release/$out.tar.gz" -C ../dist-release "$out"
+            rm -rf "../dist-release/${out:?}"
+          done
+
+      # The node bundle carries express inside it, so the artefact needs no node_modules
+      # on the target host — just Node 20.
+      - name: nodejs-express-js
+        working-directory: nodejs-express-js
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          out="hosted-fields-examples-nodejs-express-js_${tag}"
+          npm ci
+          npm run build
+          mkdir -p "../dist-release/$out"
+          cp -r dist/. "../dist-release/$out/"
+          cp -r deploy "../dist-release/$out/"
+          tar -czf "../dist-release/$out.tar.gz" -C ../dist-release "$out"
+          rm -rf "../dist-release/${out:?}"
+
+      - name: checksums
+        working-directory: dist-release
+        run: sha256sum *.tar.gz > SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-release/*.tar.gz
+            dist-release/SHA256SUMS
+          generate_release_notes: true
+          body: |
+            Two example integrations of Hosted Fields, same payment on two servers.
+
+            - `hosted-fields-examples-go_*_linux_*.tar.gz` — one static binary with the pages
+              embedded, plus `deploy/`. Needs no runtime.
+            - `hosted-fields-examples-nodejs-express-js_*.tar.gz` — bundled `server.js` with
+              `public/`, `views/` and `deploy/`. Needs Node 20+, no `node_modules`.
+
+            Settings and the RSA key are supplied through the environment, see the README.

@@ -1,0 +1,6 @@
+# Keys and secrets never belong in the repository, from any directory
+*.pem
+*.key
+.env
+
+.DS_Store

@@ -1,0 +1,6 @@
+.env
+/hosted-fields-example-go
+/hosted-fields-examples-go
+
+# Personal deploy scripts: host aliases and local paths, not part of the example
+/deploy-dev-*.sh

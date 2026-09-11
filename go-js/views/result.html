@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Payment result &middot; Northwind Supply</title>
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Config injection. THE ONLY LINE THAT DIFFERS BETWEEN THE TWO APPS.
+       go-js:             <script>window.CONFIG = {{ . }};</script>
+       nodejs-express-js: <script>window.CONFIG = __CONFIG__;</script> -->
+  <script>window.CONFIG = {{ . }};</script>
+</head>
+<body>
+
+<!-- The 3DS return page: the same shell and the same card, with only the
+     status panel inside. No fields, so no SDK and no field styles here. -->
+<main class="pay-wrap">
+  <div class="pay-card">
+
+    <div class="pay-summary">
+      <div>
+        <span class="pay-summary__merchant">Northwind Supply</span>
+        <span class="pay-summary__order" id="orderRef">Hosted Fields example order</span>
+      </div>
+      <div class="pay-summary__total">
+        <span class="pay-summary__label">Total</span>
+        <span class="pay-summary__amount" id="orderAmount"></span>
+      </div>
+    </div>
+
+    <!-- Visible from the start on this page: the payer arrives mid-payment,
+         so the panel opens in its processing state and the polling code
+         replaces it with the final verdict. -->
+    <div id="orderStatus" class="status status--processing" aria-live="polite" aria-busy="true">
+      <div class="status__head">
+        <span class="status__badge">
+          <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+            <circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3.2 3.6" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <div>
+          <div class="status__eyebrow">In progress</div>
+          <h2 class="status__title">Confirming your payment</h2>
+        </div>
+      </div>
+      <p class="status__body">You are back from your bank. This takes a few seconds &mdash; please do not close or reload this window.</p>
+    </div>
+  </div>
+
+  <p class="pay-foot">Payments processed by Payneteasy</p>
+</main>
+
+<script src="status.js"></script>
+<script>
+  // No SDK on this page, so no sdk.setStyle() — but the payer's theme still has
+  // to survive the trip to the bank and back.
+  (function () {
+    var stored = null;
+    try { stored = window.localStorage.getItem('pay-theme'); } catch (e) {}
+    var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', stored || (dark ? 'dark' : 'light'));
+  })();
+
+  // The amount the gateway was asked for, and the order from the signed callback
+  document.getElementById('orderAmount').textContent =
+    statusAmount({ amount: CONFIG.amount, currency: CONFIG.currency });
+  if (CONFIG.clientOrderId) {
+    document.getElementById('orderRef').textContent = 'Order ' + CONFIG.clientOrderId;
+  }
+
+  // The payer comes back here after the 3DS challenge. The order comes from the
+  // callback the gateway signed, so nothing has to be trusted to the browser.
+  if (CONFIG.orderId) {
+    pollStatus({
+      basePath: CONFIG.basePath,
+      orderId: CONFIG.orderId,
+      clientOrderId: CONFIG.clientOrderId,
+      redirected: true // already back from the issuer, do not bounce there again
+    });
+  } else {
+    showStatus({ status: 'error', 'error-message': 'Nothing to show: open this page from a payment.' });
+  }
+</script>
+</body>
+</html>
