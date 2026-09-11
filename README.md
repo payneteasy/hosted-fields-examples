@@ -1,8 +1,9 @@
 # Hosted Fields examples
 
-Seven working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on PHP, on
-Python, on Ruby, on Java and on Next.js. Same payment, same screens, same flow — what differs is
-the server language and, in the last, whether the page is a static file or a React tree.
+Eight working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on PHP, on
+Python, on Ruby, on Java, on Rust and on Next.js. Same payment, same screens, same flow — what
+differs is the server language and, in the last, whether the page is a static file or a React
+tree.
 
 ## The examples
 
@@ -14,6 +15,7 @@ the server language and, in the last, whether the page is a static file or a Rea
 | **Python** | Python 3.12+, Flask | [`python-flask-js/`](python-flask-js/) | [`app.py`](python-flask-js/app.py) routes · [`paynet.py`](python-flask-js/paynet.py) the three gateway calls · [`oauth.py`](python-flask-js/oauth.py) request signing |
 | **Ruby** | Ruby 3.1+, Sinatra | [`ruby-sinatra-js/`](ruby-sinatra-js/) | [`app.rb`](ruby-sinatra-js/app.rb) routes · [`paynet.rb`](ruby-sinatra-js/paynet.rb) the three gateway calls · [`oauth.rb`](ruby-sinatra-js/oauth.rb) request signing |
 | **Java** | JDK 21+, Spring Boot | [`java-springboot-js/`](java-springboot-js/) | [`Routes.java`](java-springboot-js/src/main/java/com/payneteasy/hostedfields/Routes.java) routes · [`Paynet.java`](java-springboot-js/src/main/java/com/payneteasy/hostedfields/Paynet.java) the three gateway calls · [`OAuth.java`](java-springboot-js/src/main/java/com/payneteasy/hostedfields/OAuth.java) request signing |
+| **Rust** | Rust 1.85+, axum | [`rust-axum-js/`](rust-axum-js/) | [`src/main.rs`](rust-axum-js/src/main.rs) routes · [`src/paynet.rs`](rust-axum-js/src/paynet.rs) the three gateway calls · [`src/oauth.rs`](rust-axum-js/src/oauth.rs) request signing |
 | **Next.js** | Node 20+, React 19, TypeScript | [`nextjs/`](nextjs/) | [`src/app/`](nextjs/src/app/) pages and route handlers · [`src/shared/lib/paynet.ts`](nextjs/src/shared/lib/paynet.ts) the three gateway calls · [`src/shared/ui/checkout-form.tsx`](nextjs/src/shared/ui/checkout-form.tsx) the page |
 
 The browser half lives once, in [`shared/`](shared/) —
@@ -59,6 +61,10 @@ the older ones and the checksums.
 | Python | any | [`...python.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-python.tar.gz) | `tar -xzf`, then `pip install -r requirements.txt` in a venv and `python app.py` — needs Python 3.12+ |
 | Ruby | any | [`...ruby.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-ruby.tar.gz) | `tar -xzf`, then `bundle install` and `bundle exec ruby app.rb` — needs Ruby 3.1+, not macOS's 2.6 |
 | Java | any | [`...java.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-java.tar.gz) | `tar -xzf`, then `java -jar hosted-fields-example-java.jar` — needs a JRE 21+ and nothing else, the pages are inside the jar |
+| Rust | Linux x86-64 | [`..._linux_amd64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-rust_linux_amd64.tar.gz) | `tar -xzf`, set the environment, run the binary — the pages are inside it |
+| Rust | Linux arm64 | [`..._linux_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-rust_linux_arm64.tar.gz) | the same |
+| Rust | macOS Apple silicon | [`..._darwin_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-rust_darwin_arm64.tar.gz) | `tar -xzf`, then `xattr -d com.apple.quarantine hosted-fields-example-rust` — the binary is not notarised |
+| Rust | Windows x64 | [`..._windows_amd64.zip`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-rust_windows_amd64.zip) | unzip, set the environment, run the `.exe` |
 | Next.js | any | [`...nextjs.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nextjs.tar.gz) | the same, `node server.js` — but the URL prefix is compiled in, so rebuild from source to change it |
 
 The Linux archives also carry `deploy/` with a systemd unit, an nginx snippet and an environment
@@ -112,8 +118,8 @@ Put the key next to the app as `private_key.pem` or point `PRIVATE_KEY_PATH` at 
 
 None of these have defaults. Every example refuses to serve a payment until all of them are set,
 rather than falling back to a host baked in at some point and forgotten. Go, Express, Flask,
-Sinatra and Spring Boot check at startup; Next checks on the first request, so that a build needs
-no credentials, and PHP on every request, because it has no startup to check at.
+Sinatra, Spring Boot and axum check at startup; Next checks on the first request, so that a build
+needs no credentials, and PHP on every request, because it has no startup to check at.
 
 ## Run
 
@@ -167,6 +173,13 @@ cp .env.example .env          # the same values
 ```
 
 ```bash
+# Rust — needs Rust 1.85+; rustls with the ring provider, so no OpenSSL and no cmake to install
+cd rust-axum-js
+cp .env.example .env          # the same values
+cargo run                     # http://localhost:3007/hosted-fields-examples-rust/
+```
+
+```bash
 # Next.js — needs Node 20+, yarn
 cd nextjs
 yarn install
@@ -180,7 +193,8 @@ Each app has its own README with the details — settings, the 3DS return, deplo
 [go-js/README.md](go-js/README.md) · [nodejs-express-js/README.md](nodejs-express-js/README.md) ·
 [php-js/README.md](php-js/README.md) · [python-flask-js/README.md](python-flask-js/README.md) ·
 [ruby-sinatra-js/README.md](ruby-sinatra-js/README.md) ·
-[java-springboot-js/README.md](java-springboot-js/README.md) · [nextjs/README.md](nextjs/README.md)
+[java-springboot-js/README.md](java-springboot-js/README.md) ·
+[rust-axum-js/README.md](rust-axum-js/README.md) · [nextjs/README.md](nextjs/README.md)
 
 ## Layout
 
@@ -193,6 +207,7 @@ php-js/                 PHP + plain JS, no Composer
 python-flask-js/        Python + Flask + plain JS
 ruby-sinatra-js/        Ruby + Sinatra + plain JS
 java-springboot-js/     Java + Spring Boot + plain JS, assets packaged into the jar
+rust-axum-js/           Rust + axum + plain JS, assets compiled into the binary
 nextjs/                 Next.js + React + TypeScript
 e2e-tests/              a fake gateway, and every app driven through a browser
 ```
@@ -207,7 +222,7 @@ release archives carry nothing extra. Editing one directly is the mistake to avo
 
 CI runs that script and then `git diff --exit-code`, so an unsynced copy fails the push. There
 is no per-file list anywhere and no line that is allowed to differ — the config injection left
-the HTML and became `config.js`, which is why a fourth or a seventh language costs nothing here.
+the HTML and became `config.js`, which is why a fourth or an eighth language costs nothing here.
 
 `nextjs/` takes only `styles.css`: its scripts and views are React components. That one shared
 file is what keeps them from looking different.
