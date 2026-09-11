@@ -38,13 +38,19 @@ exactly these and nothing else:
 | `POST /result/callback` | verify `control`, `403` on a mismatch, else `303` to `/result` with the signed query |
 | `GET /result` | verify the query when `orderid` is present, then `views/result.html` |
 
-Three things about it are load-bearing:
+Four things about it are load-bearing:
 
 - **`config.js` is the only generated thing anywhere.** That is what lets the views be
   identical across languages, so never reintroduce templating into an HTML file.
 - **`config.js` is `no-store`** — the ticket in it is single-use — and it must stay valid
   JavaScript even when the gateway call behind it failed: emit `error` in place of
   `ephemeralTicket`, and `checkout.js` tells the payer and kills the button.
+- **`POST /pay` never takes a payment parameter from the request.** The body carries a
+  `browser` object for 3DS 2.0, and it is filtered against a fixed list of eight
+  `customer_browser_*` keys before it goes anywhere near the Sale. `amount`, `currency`,
+  `redirect_url`, `hosted_fields_token` and `client_orderid` are the server's, and the Sale is
+  built so that they are written after the browser fields rather than before. Merging the body
+  over them — which is what the first version did — let a caller choose what to charge.
 - **The 3DS return is signed twice over the same checksum.** The gateway POSTs
   `status`/`orderid`/`merchant_order`/`control` to `/result/callback`; the redirect forwards
   those four verbatim, and `GET /result` checks them again with the same function. The browser
@@ -102,12 +108,6 @@ Everywhere:
 - No CDN, no webfonts, no images. Plain CSS in one file, shipped as written.
 - Never do anything to `.hf-field` that could hide or fake a card input — no `transform`,
   `opacity`, `clip-path`, `filter`, positioned overlays. The SDK rejects it.
-
-In `go-js/` and `nodejs-express-js/`:
-
-- No dependencies and no bundler for the browser half.
-- `public/` is ES5: `var`, `function`, no arrow functions, no template literals.
-
 - **No inline `<script>` and no inline `style=` in a view.** Every page ships a
   Content-Security-Policy with no `'unsafe-inline'`, and a nonce cannot go in the markup because
   nothing in `views/` is templated. That is why the result page's script is
@@ -115,6 +115,12 @@ In `go-js/` and `nodejs-express-js/`:
   `frame-src` — the card fields are iframes from that host — and is built at runtime, so it is a
   header and not a violation of the no-templating rule. `nextjs/` is the exception again: Next
   emits its own inline scripts, so its middleware mints a nonce per request instead.
+
+In `go-js/` and `nodejs-express-js/`:
+
+- No dependencies and no bundler for the browser half.
+- `public/` is ES5: `var`, `function`, no arrow functions, no template literals.
+
 In `nextjs/` the bundler is the point of the example, but the dependencies are still only
 Next, React and the two linters — nothing for the integration itself.
 
