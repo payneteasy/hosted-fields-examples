@@ -25,6 +25,11 @@ import {
  *  binaries of its own that nothing here should overwrite. */
 const GO_BINARY_OUT = join(TMP_DIR, 'hosted-fields-example-go');
 
+/** The Rust example's target directory, for the same reason — and cargo would otherwise leave a
+ *  multi-gigabyte target/ inside the app. --target-dir puts it here instead. */
+const RUST_TARGET_DIR = join(TMP_DIR, 'rust-axum-target');
+const RUST_BINARY_OUT = join(RUST_TARGET_DIR, 'release', 'hosted-fields-example-rust');
+
 /** The Flask example's virtualenv, here for the same reason: the suite must leave every app
  *  directory exactly as it found it. */
 const PYTHON_VENV = join(TMP_DIR, 'python-flask-venv');
@@ -105,6 +110,24 @@ export function javaEnv(): Record<string, string> {
     }
   }
   return {};
+}
+
+/**
+ * cargo installed by rustup lives in ~/.cargo/bin, which is on PATH only once a shell has sourced
+ * ~/.cargo/env — and Playwright's webServer does not. Naming it, and putting its directory first
+ * on PATH, is also what lets cargo find the rustc shim beside it.
+ */
+export function cargoBinary(): string {
+  const candidates = [process.env.CARGO_BIN, join(homedir(), '.cargo', 'bin', 'cargo')].filter(
+    (candidate): candidate is string => Boolean(candidate),
+  );
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  // Falls back to PATH; if it is not there either the webServer start fails with ENOENT.
+  return 'cargo';
 }
 
 function gatewayEnv(port: number): Record<string, string> {
@@ -226,6 +249,24 @@ export const APPS: AppUnderTest[] = [
       ...javaEnv(),
     },
     // A cold run downloads Maven itself and then Spring Boot; a warm one is a few seconds
+    startTimeout: 600_000,
+  },
+  {
+    name: 'rust-axum-js',
+    port: 4018,
+    basePath: '/hosted-fields-examples-rust',
+    cwd: join(REPO_ROOT, 'rust-axum-js'),
+    // Built into .tmp/ and then exec'd from there, the way the Go example is: --target-dir keeps
+    // cargo's output out of the app directory, and running the binary from .tmp means it finds no
+    // .env there — so rust-axum-js/.env cannot leak into a test run, and BASE_PATH needs no pin.
+    command:
+      `${JSON.stringify(cargoBinary())} build --release --target-dir ${JSON.stringify(RUST_TARGET_DIR)} ` +
+      `&& cd ${JSON.stringify(TMP_DIR)} && exec ${JSON.stringify(RUST_BINARY_OUT)}`,
+    env: {
+      ...gatewayEnv(4018),
+      PATH: `${dirname(cargoBinary())}${delimiter}${process.env.PATH ?? ''}`,
+    },
+    // A cold build compiles axum, tokio and rustls from source; a warm one is a few seconds
     startTimeout: 600_000,
   },
   {
