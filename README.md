@@ -3,9 +3,49 @@
 Two working merchant integrations of [Hosted Fields][docs], one on Go and one on Node.js. Same
 payment, same screens, same flow — only the server language differs.
 
-The two exist to make a point: **the browser half is byte-for-byte identical between them.**
-Everything interesting about Hosted Fields happens in the page, and the server behind it is
+## The examples
+
+| | Server | Read the code | Start here |
+| --- | --- | --- | --- |
+| **Go** | Go 1.24+, standard library only | [`go-js/`](go-js/) | [`main.go`](go-js/main.go) routes · [`paynet.go`](go-js/paynet.go) the three gateway calls · [`oauth.go`](go-js/oauth.go) request signing |
+| **Node.js** | Node 20+, express only | [`nodejs-express-js/`](nodejs-express-js/) | [`src/server.js`](nodejs-express-js/src/server.js) routes · [`src/paynet.js`](nodejs-express-js/src/paynet.js) the three gateway calls · [`src/oauth.js`](nodejs-express-js/src/oauth.js) request signing |
+
+The browser half is shared and **byte-for-byte identical** between them —
+[`public/checkout.js`](go-js/public/checkout.js) sets up the fields and tokenizes,
+[`public/status.js`](go-js/public/status.js) polls the order,
+[`views/checkout.html`](go-js/views/checkout.html) is the page. That is the point of having two:
+everything interesting about Hosted Fields happens in the page, and the server behind it is
 interchangeable. Pick whichever language you work in and ignore the other.
+
+## What it looks like
+
+| Checkout | After the payment |
+| --- | --- |
+| <img src="docs/checkout.png" alt="Checkout page: the card fields are gateway iframes, the cardholder name between them is the merchant's own input" width="380"> | <img src="docs/result.png" alt="Result panel: approved, with amount, card, cardholder, order, reference and approval code" width="380"> |
+
+Look at the card section on the left. Card number, expiry and CVV are iframes from the gateway —
+but **Cardholder name, sitting between them, is the merchant's own `<input>`**, in the same
+visual row and the same style. That is what Hosted Fields buy you and what a redirect to a hosted
+payment page cannot do.
+
+## Download a built example
+
+No build needed — each archive holds a ready binary. These links always point at the newest
+release; the [releases page](https://github.com/payneteasy/hosted-fields-examples/releases) has
+the older ones and the checksums.
+
+| Example | Platform | Download | Then |
+| --- | --- | --- | --- |
+| Go | Linux x86-64 | [`..._linux_amd64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go_linux_amd64.tar.gz) | `tar -xzf`, set the environment, run the binary |
+| Go | Linux arm64 | [`..._linux_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go_linux_arm64.tar.gz) | the same |
+| Go | macOS Apple silicon | [`..._darwin_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go_darwin_arm64.tar.gz) | `tar -xzf`, then `xattr -d com.apple.quarantine hosted-fields-examples-go` — the binary is not notarised |
+| Go | Windows x64 | [`..._windows_amd64.zip`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go_windows_amd64.zip) | unzip, set the environment, run the `.exe` |
+| Node.js | any | [`...nodejs-express-js.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nodejs-express-js.tar.gz) | `tar -xzf`, then `node server.js` — needs Node 20+, no `npm install` |
+
+The Linux archives also carry `deploy/` with a systemd unit, an nginx snippet and an environment
+template. The macOS and Windows builds do not: those are for trying the example on a laptop.
+
+Or clone the repository and run from source — see [Run](#run) below.
 
 ## What Hosted Fields buy you
 
@@ -13,18 +53,8 @@ The card number, expiry date and CVV are `<iframe>`s served by the payment gatew
 your inputs, your page cannot read them, and the card never reaches your server — so your server
 stays out of PCI scope.
 
-What you keep is the page. Open either example and look at the card section:
-
-```
-Card number      [ iframe, gateway origin ]
-Cardholder name  [ <input>, yours          ]   <- your own field, between two of theirs
-Expiry date      [ iframe ]   CVV [ iframe ]
-```
-
-The cardholder name is an ordinary same-origin input sitting in the middle of the gateway's
-fields, in the same visual row, styled by the same CSS variables. A redirect to a hosted payment
-page cannot do that. The layout, the copy, the light and dark themes and the result panel are all
-yours; only the three boxes holding card data are not.
+The layout, the copy, the light and dark themes and the result panel are all yours; only the
+three boxes holding card data are not.
 
 ## The flow
 

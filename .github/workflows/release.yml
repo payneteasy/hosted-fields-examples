@@ -36,21 +36,25 @@ jobs:
           tag="${GITHUB_REF_NAME}"
           for target in linux/amd64 linux/arm64 darwin/arm64 windows/amd64; do
             os="${target%/*}"; arch="${target#*/}"
-            out="hosted-fields-examples-go_${tag}_${os}_${arch}"
+            # The archive carries no version so that a README can link to
+            # releases/latest/download/<name> and never go stale; the directory inside it does,
+            # so an unpacked copy still says which release it came from.
+            name="hosted-fields-examples-go_${os}_${arch}"
+            dir="hosted-fields-examples-go_${tag}_${os}_${arch}"
             bin="hosted-fields-examples-go"
             if [ "$os" = windows ]; then bin="$bin.exe"; fi
 
-            mkdir -p "../dist-release/$out"
-            GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "../dist-release/$out/$bin" .
-            if [ "$os" = linux ]; then cp -r deploy "../dist-release/$out/"; fi
+            mkdir -p "../dist-release/$dir"
+            GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "../dist-release/$dir/$bin" .
+            if [ "$os" = linux ]; then cp -r deploy "../dist-release/$dir/"; fi
 
             # zip for Windows, tar.gz everywhere else — whatever the target unpacks without extra tools
             if [ "$os" = windows ]; then
-              (cd ../dist-release && zip -qr "$out.zip" "$out")
+              (cd ../dist-release && zip -qr "$name.zip" "$dir")
             else
-              tar -czf "../dist-release/$out.tar.gz" -C ../dist-release "$out"
+              tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
             fi
-            rm -rf "../dist-release/${out:?}"
+            rm -rf "../dist-release/${dir:?}"
           done
 
       # The node bundle carries express inside it, so the artefact needs no node_modules
@@ -59,14 +63,15 @@ jobs:
         working-directory: nodejs-express-js
         run: |
           tag="${GITHUB_REF_NAME}"
-          out="hosted-fields-examples-nodejs-express-js_${tag}"
+          name="hosted-fields-examples-nodejs-express-js"
+          dir="${name}_${tag}"
           npm ci
           npm run build
-          mkdir -p "../dist-release/$out"
-          cp -r dist/. "../dist-release/$out/"
-          cp -r deploy "../dist-release/$out/"
-          tar -czf "../dist-release/$out.tar.gz" -C ../dist-release "$out"
-          rm -rf "../dist-release/${out:?}"
+          mkdir -p "../dist-release/$dir"
+          cp -r dist/. "../dist-release/$dir/"
+          cp -r deploy "../dist-release/$dir/"
+          tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
+          rm -rf "../dist-release/${dir:?}"
 
       - name: checksums
         working-directory: dist-release
