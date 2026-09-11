@@ -192,7 +192,7 @@ jobs:
         working-directory: dotnet-aspnetcore-js
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
           # The app references no package at all, so there is no lock file of its own to key a
