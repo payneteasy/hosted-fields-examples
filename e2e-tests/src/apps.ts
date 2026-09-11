@@ -25,6 +25,10 @@ import {
  *  binaries of its own that nothing here should overwrite. */
 const GO_BINARY_OUT = join(TMP_DIR, 'hosted-fields-example-go');
 
+/** The Flask example's virtualenv, here for the same reason: the suite must leave every app
+ *  directory exactly as it found it. */
+const PYTHON_VENV = join(TMP_DIR, 'python-flask-venv');
+
 export interface AppUnderTest {
   /** Playwright project name, and the directory the app lives in. */
   name: string;
@@ -34,6 +38,9 @@ export interface AppUnderTest {
   cwd: string;
   command: string;
   env: Record<string, string>;
+  /** How long to wait for the readiness probe. Omitted means the 60s default; an app that builds
+   *  or installs before it listens needs more. */
+  startTimeout?: number;
 }
 
 /**
@@ -112,6 +119,25 @@ export const APPS: AppUnderTest[] = [
     env: { ...gatewayEnv(4014), BASE_PATH: '/hosted-fields-examples-php' },
   },
   {
+    name: 'python-flask-js',
+    port: 4015,
+    basePath: '/hosted-fields-examples-python',
+    cwd: join(REPO_ROOT, 'python-flask-js'),
+    // The virtualenv is built in .tmp/, never in the app directory: this suite leaves the working
+    // tree alone. Both steps are near-instant once it is warm, and `python3` only has to exist
+    // for long enough to create it — everything after that runs out of the venv.
+    command:
+      `python3 -m venv ${JSON.stringify(PYTHON_VENV)} && ` +
+      `${JSON.stringify(join(PYTHON_VENV, 'bin', 'pip'))} install -q -r requirements.txt && ` +
+      `exec ${JSON.stringify(join(PYTHON_VENV, 'bin', 'python'))} app.py`,
+    // BASE_PATH is pinned for the same reason as php-js: the app has to run from its own
+    // directory, so python-flask-js/.env is in reach. The environment wins over that file for
+    // everything gatewayEnv passes, and this closes the one gap it leaves.
+    env: { ...gatewayEnv(4015), BASE_PATH: '/hosted-fields-examples-python' },
+    // A cold `pip install cryptography` is slower than any server start
+    startTimeout: 180_000,
+  },
+  {
     name: 'nextjs',
     port: 4013,
     basePath: '/hosted-fields-examples-nextjs',
@@ -120,6 +146,8 @@ export const APPS: AppUnderTest[] = [
     command: 'yarn build && yarn start',
     // HOSTNAME rather than LISTEN_ADDR: Next reads the interface from the shell under that name.
     env: { ...gatewayEnv(4013), HOSTNAME: HOST },
+    // It builds before it listens
+    startTimeout: 300_000,
   },
 ];
 

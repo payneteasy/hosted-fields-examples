@@ -8,8 +8,8 @@ import { EMULATOR_PORT, HOST, PROJECT_ROOT } from './src/settings.ts';
    comes after the web servers are already up. */
 ensureKeypair();
 
-/* Starting all three apps costs a `next build`, so a run that asks for one project should not
-   pay for the other two. Playwright has no per-project webServer, but it does hand us the
+/* Starting every app costs a `next build` and a pip install, so a run that asks for one project
+   should not pay for the rest. Playwright has no per-project webServer, but it does hand us the
    command line. */
 function selectedProjects(): string[] {
   const names: string[] = [];
@@ -31,8 +31,8 @@ const appsToStart = wanted.length > 0 ? APPS.filter((app) => wanted.includes(app
 
 export default defineConfig({
   testDir: './e2e',
-  // The emulator holds the pending scenario and the order book in memory, and all three apps
-  // share it. Serial is what makes that unambiguous.
+  // The emulator holds the pending scenario and the order book in memory, and every app
+  // shares it. Serial is what makes that unambiguous.
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
@@ -67,8 +67,8 @@ export default defineConfig({
       env: app.env,
       url: `${appOrigin(app)}${app.basePath}/`,
       reuseExistingServer: !process.env.CI,
-      // nextjs builds before it starts.
-      timeout: app.name === 'nextjs' ? 300_000 : 60_000,
+      // An app that builds or installs first says so in its own entry.
+      timeout: app.startTimeout ?? 60_000,
       stdout: 'pipe' as const,
       stderr: 'pipe' as const,
     })),
