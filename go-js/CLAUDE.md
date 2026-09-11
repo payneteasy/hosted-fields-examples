@@ -30,7 +30,8 @@ a server.
 - **Gateway replies are JSON** because the request asks for it with
   `Accept: application/vnd.pay+json`. A rejected request comes back as 4xx **with a JSON body**
   carrying `error-message`, so `postJSON` decodes whatever the status and only treats a non-JSON
-  reply as a failed call. The ephemeral ticket is the one reply that stays plain text.
+  reply as a failed call — including the ephemeral ticket, which arrives as JSON with the rest
+  and is read out of `ephemeralTicket`.
 - **Nothing in `views/` is templated.** Both pages are served straight out of the embedded FS,
   and the only generated thing is `config.js` (`writeConfigJS` in `main.go`). Reintroducing a
   template would break the promise that the same HTML serves from every example.

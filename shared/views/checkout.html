@@ -106,9 +106,9 @@
           </div>
         </div>
 
-        <!-- Empty is the resting state (#formError:empty { display: none }).
-             The glyph stays in the markup so the error is never colour-only;
-             showFormError() keeps it and appends the text after it. -->
+        <!-- The glyph lives here permanently so the error is never colour-only, which means
+             :empty never matches. The resting state is therefore the absence of role="alert",
+             which styles.css hides; showFormError() adds the role and the text after the glyph. -->
         <p id="formError">
           <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
             <path d="M8 1.4 15 14H1L8 1.4Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>

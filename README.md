@@ -102,12 +102,15 @@ Ask the gateway for these. Every one is per-installation, and none of them belon
 Put the key next to the app as `private_key.pem` or point `PRIVATE_KEY_PATH` at it. `*.pem`,
 `*.key` and `.env` are git-ignored repository wide — keep it that way.
 
-None of these have defaults. Both apps refuse to start until every one of them is set, rather
-than falling back to a host baked in at some point and forgotten.
+None of these have defaults. Every example refuses to serve a payment until all of them are set,
+rather than falling back to a host baked in at some point and forgotten. Go and Express check at
+startup; Next checks on the first request, so that a build needs no credentials.
 
 ## Run
 
-Both apps mount everything under a URL prefix, so they can sit behind one nginx at once.
+All three mount everything under a URL prefix, so they can sit behind one nginx at once, and
+all three bind to `127.0.0.1` by default — they speak plain HTTP and trust `X-Forwarded-For`, so
+a proxy belongs in front.
 
 ```bash
 # Go — needs Go 1.24+, no dependencies at all
@@ -162,6 +165,26 @@ the HTML and became `config.js`, which is why a fourth or a seventh language cos
 
 `nextjs/` takes only `styles.css`: its scripts and views are React components. That one shared
 file is what keeps the three from looking different.
+
+## What an example leaves for you
+
+Everything above is the integration. These are the parts a shop needs and an example does not
+have, listed so that copying this code does not quietly copy the gaps too:
+
+- **`GET /status` is not authorised.** It takes the two order ids from the query and asks the
+  gateway with the merchant's own credentials, so anyone holding those ids can read the order —
+  card last four, holder, bank message. The ids are random rather than sequential, which makes
+  them impractical to guess, but that is not the same as a check. A shop should tie the order to
+  a payer session or a signed cookie and serve the status only to the session that paid.
+- **Nothing is stored.** There is no order table and no ledger: the page polls the gateway and
+  the page is all there is. A shop reconciles against its own records.
+- **Nothing is rate limited.** Each page load spends an ephemeral ticket, and nothing stops a
+  caller from loading the page in a loop.
+- **The billing address in the Sale is demo data** — the Seattle address in `paynet.go`,
+  `paynet.js` and `paynet.ts` is there so the call is complete. Send the payer's real one.
+- **The apps bind to `127.0.0.1`** and take `X-Forwarded-For` on trust, because they speak plain
+  HTTP and expect nginx in front. Exposed directly, the address the gateway screens for fraud
+  becomes whatever the caller says it is.
 
 ## A note on the payer-facing language
 

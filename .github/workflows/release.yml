@@ -104,7 +104,7 @@ jobs:
             dist-release/SHA256SUMS
           generate_release_notes: true
           body: |
-            Two example integrations of Hosted Fields, same payment on two servers.
+            Three example integrations of Hosted Fields, the same payment on three servers.
 
             - `hosted-fields-examples-go_*_linux_*.tar.gz` — one static binary with the pages
               embedded, plus `deploy/`. Needs no runtime.
