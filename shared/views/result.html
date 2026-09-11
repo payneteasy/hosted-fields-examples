@@ -54,42 +54,6 @@
      ephemeralTicket: there is no card to tokenize here. -->
 <script src="result-config.js"></script>
 <script src="status.js"></script>
-<script>
-  // No SDK on this page, so no sdk.setStyle() — but the payer's theme still has
-  // to survive the trip to the bank and back.
-  (function () {
-    var stored = null;
-    try { stored = window.localStorage.getItem('pay-theme'); } catch (e) {}
-    var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.setAttribute('data-theme', stored || (dark ? 'dark' : 'light'));
-  })();
-
-  // The amount the gateway was asked for
-  document.getElementById('orderAmount').textContent =
-    statusAmount({ amount: CONFIG.amount, currency: CONFIG.currency });
-
-  // The payer comes back here after the 3DS challenge. The order is in the query the callback
-  // redirected to, alongside the `control` checksum the gateway signed it with — and the server
-  // rechecks that checksum on every request for this page, so an edited URL never gets served.
-  // Nothing is kept in sessionStorage and nothing is taken on the browser's word.
-  var params = new URLSearchParams(window.location.search);
-  var orderId = params.get('orderid') || '';
-  var clientOrderId = params.get('merchant_order') || '';
-
-  if (clientOrderId) {
-    document.getElementById('orderRef').textContent = 'Order ' + clientOrderId;
-  }
-
-  if (orderId) {
-    pollStatus({
-      basePath: CONFIG.basePath,
-      orderId: orderId,
-      clientOrderId: clientOrderId,
-      redirected: true // already back from the issuer, do not bounce there again
-    });
-  } else {
-    showStatus({ status: 'error', 'error-message': 'Nothing to show: open this page from a payment.' });
-  }
-</script>
+<script src="result.js"></script>
 </body>
 </html>
