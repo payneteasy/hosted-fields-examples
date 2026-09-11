@@ -8,9 +8,72 @@ permissions:
   contents: write
 
 jobs:
+  # Rust cross-compiles no more easily than it has to, so each target is built on the runner that
+  # is native to it and the archives are handed to the build job below. Like the Go artefacts,
+  # these are self-contained: views/ and public/ are compiled in with include_dir!.
+  rust:
+    name: rust-axum-js (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, name: linux_amd64, archive: tar }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, name: linux_arm64, archive: tar }
+          - { os: macos-latest, target: aarch64-apple-darwin, name: darwin_arm64, archive: tar }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, name: windows_amd64, archive: zip }
+    defaults:
+      run:
+        shell: bash
+        working-directory: rust-axum-js
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust-axum-js
+          key: ${{ matrix.target }}
+
+      - run: cargo build --release --target ${{ matrix.target }}
+
+      # The archive carries no version so that a README can link to
+      # releases/latest/download/<name> and never go stale; the directory inside it does, so an
+      # unpacked copy still says which release it came from. deploy/ ships only with linux: a
+      # systemd unit and an nginx snippet mean nothing on a laptop, where these builds are for
+      # trying the example.
+      - name: package
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="hosted-fields-examples-rust_${{ matrix.name }}"
+          dir="hosted-fields-examples-rust_${tag}_${{ matrix.name }}"
+          bin="hosted-fields-example-rust"
+          if [ "${{ matrix.archive }}" = zip ]; then bin="$bin.exe"; fi
+
+          mkdir -p "../dist-release/$dir"
+          cp "target/${{ matrix.target }}/release/$bin" .env.example README.md "../dist-release/$dir/"
+          case "${{ matrix.name }}" in linux_*) cp -r deploy "../dist-release/$dir/" ;; esac
+
+          # zip for Windows, tar.gz everywhere else — whatever the target unpacks without extra
+          # tools. 7z rather than zip: the Windows runners have no zip.
+          cd ../dist-release
+          if [ "${{ matrix.archive }}" = zip ]; then
+            7z a -tzip -bso0 "$name.zip" "$dir"
+          else
+            tar -czf "$name.tar.gz" "$dir"
+          fi
+          rm -rf "${dir:?}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rust-${{ matrix.name }}
+          path: dist-release/*
+          if-no-files-found: error
+
   build:
     name: build artefacts
     runs-on: ubuntu-latest
+    needs: rust
     steps:
       - uses: actions/checkout@v5
 
@@ -160,6 +223,14 @@ jobs:
           tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
           rm -rf "../dist-release/${dir:?}"
 
+      # The Rust archives were built on their own runners; they join the others here, before the
+      # checksums are taken over the lot.
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist-release
+          pattern: rust-*
+          merge-multiple: true
+
       - name: checksums
         working-directory: dist-release
         run: sha256sum *.tar.gz *.zip > SHA256SUMS
@@ -194,6 +265,12 @@ jobs:
             - `hosted-fields-examples-java.tar.gz` — one jar with the pages inside it, plus
               `deploy/`. Needs a JRE 21+ and nothing else: `java -jar
               hosted-fields-example-java.jar`.
+            - `hosted-fields-examples-rust_linux_*.tar.gz` — one binary with the pages compiled
+              in, plus `deploy/`. Needs a glibc-based Linux and nothing else.
+            - `hosted-fields-examples-rust_darwin_arm64.tar.gz`,
+              `hosted-fields-examples-rust_windows_amd64.zip` — the same binary for trying the
+              example on a laptop. No `deploy/`: the systemd unit and the nginx snippet are for
+              a Linux server.
             - `hosted-fields-examples-nextjs.tar.gz` — the standalone Next.js server with
               `public/`, `.next/` and `deploy/`. Needs Node 20+, `node server.js`. The URL
               prefix is compiled in: rebuild from source to change it.

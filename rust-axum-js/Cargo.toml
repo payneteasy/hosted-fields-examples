@@ -1,0 +1,50 @@
+[package]
+name = "hosted-fields-example-rust"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+# Every dependency here is for the server half. The browser half has none, and no bundler: it is
+# plain ES5 in public/, shipped as written.
+[dependencies]
+# The server. default-features = false leaves out http2, tracing and the multipart/form extractors
+# nothing here uses; "json" is the Json response type.
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "json"] }
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "macros", "net"] }
+
+# The client for the three gateway calls. rustls rather than the native-tls default, so no OpenSSL
+# is dragged in — and "rustls-no-provider" rather than "rustls", which would pick aws-lc-rs and
+# want cmake installed to build it. The provider is ring, installed in main(): it needs nothing
+# but a C compiler, so `cargo run` works on a bare machine. reqwest has no default timeout at all,
+# hence the explicit one in main().
+reqwest = { version = "0.13", default-features = false, features = [
+    "rustls-no-provider",
+    "rustls-native-certs",
+    "charset",
+    "form",
+] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+
+# The request and reply bodies. form_urlencoded parses the 3DS callback and builds the query it is
+# forwarded with — never the OAuth signature, which needs RFC 3986 and gets its own encoder.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+form_urlencoded = "1"
+
+# The pages and the client scripts, compiled into the binary — the analogue of Go's //go:embed.
+include_dir = "0.7"
+
+# Signing and checksums, pure Rust rather than bindings to OpenSSL: RSA-SHA256 for the OAuth
+# signature, SHA-1 for the 3DS control, and a constant-time compare for checking it.
+rsa = "0.9"
+sha2 = { version = "0.10", features = ["oid"] }  # "oid" is the AssociatedOid that Pkcs1v15Sign wants
+sha1 = "0.10"
+base64 = "0.22"
+hex = "0.4"
+subtle = "2"
+getrandom = "0.4"
+
+[profile.release]
+# The counterpart of Go's -ldflags='-s -w': the release artefact is a binary to run, not to debug
+strip = true

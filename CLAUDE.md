@@ -1,8 +1,8 @@
 # Hosted Fields examples
 
-Seven merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
-`python-flask-js/`, `ruby-sinatra-js/`, `java-springboot-js/` and `nextjs/`. They exist to be
-read, so clarity beats cleverness everywhere in this repository.
+Eight merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
+`python-flask-js/`, `ruby-sinatra-js/`, `java-springboot-js/`, `rust-axum-js/` and `nextjs/`.
+They exist to be read, so clarity beats cleverness everywhere in this repository.
 
 ## The rule that breaks most often
 
@@ -177,6 +177,36 @@ wants none of the three. Four rules, each explained where it is enforced:
   `@RequestParam`, which the servlet container fills from the query string too, so the four values
   verified would not be the four forwarded.
 
+## Rust, in `rust-axum-js/` only
+
+axum leaves the routing table honest but has one shape of its own, and the crate ecosystem has
+defaults that would quietly bring back what the other examples avoid. Four rules, each explained
+where it is enforced:
+
+- **`Router::nest` maps the mounted router's `/` onto the *bare* prefix**, not onto `{prefix}/`.
+  So the payment page is registered outside the nest, at the trailing-slash form — the one the
+  views' relative asset URLs resolve against — and the bare prefix answers a `301` to it, the
+  redirect Go's mux and Tomcat both send by themselves. Nesting the page instead leaves
+  `{prefix}/` a 404 and every asset URL one segment too high;
+- **nothing in `views/` is templated**, and both pages are compiled in with `include_dir!` — the
+  analogue of `//go:embed`, so the artefact is one binary. `config.js` is the only generated
+  thing, and `views/`, `public/` stay synced copies of `shared/`;
+- the signature encoder is **hand-written RFC 3986**, never `form_urlencoded`, which is form
+  encoding: `+` for a space, and `!'()*` left alone. The Sale body *is* form encoded — that is
+  what `.form(params)` is for — and the 3DS callback is parsed off the **body**, never the query,
+  so the four values verified are the four forwarded;
+- settings are parsed and validated **in `main`, before the listener is opened**, never lazily out
+  of a `static`, so the process refuses to start without credentials — and `cargo test` and
+  `cargo build` need none.
+
+Two dependency choices carry the same weight, and reverting either brings back what it was picked
+to avoid: **reqwest with `default-features = false` and `rustls-no-provider`** — the defaults are
+native-tls, which is OpenSSL, and the plain `rustls` feature picks aws-lc-rs, which wants cmake —
+with an **explicit 10-second timeout**, because reqwest has no default one at all; and **`rsa` +
+`sha2` + `sha1`**, pure Rust rather than bindings to OpenSSL. `X-Forwarded-For` is read by hand,
+five lines, taking the **last** element: nginx appends the address it saw, so that is the one
+element the caller could not choose.
+
 ## Frontend constraints
 
 Everywhere:
@@ -217,6 +247,8 @@ cd python-flask-js    && python -m compileall -q -x '(\.venv|__pycache__)' . \
                       && python -m unittest discover -s tests -t .
 cd ruby-sinatra-js    && ruby -c *.rb config.ru test/*.rb && ruby test/all.rb
 cd java-springboot-js && ./mvnw -B -Perrorprone compile && ./mvnw -B verify
+cd rust-axum-js       && cargo fmt --check && cargo clippy --all-targets -- -D warnings \
+                      && cargo test && cargo build --release
 cd nextjs             && yarn install && yarn lint && yarn build
 ```
 
@@ -230,7 +262,7 @@ the checks above** — it needs every toolchain, a browser and a `next build`.
 
 ```bash
 cd e2e-tests && npm test        # or test:go / test:express / test:php / test:python /
-                                #    test:ruby / test:java / test:nextjs
+                                #    test:ruby / test:java / test:rust / test:nextjs
 ```
 
 Four things about it are load-bearing:
