@@ -1,0 +1,27 @@
+<!-- The two pieces of this example that fail silently: the OAuth signature base string and the
+     3DS callback checksum. The vectors are the ones the Go and Express examples use, so none of
+     the nine can drift alone.
+
+     No credentials are needed and none are read: Settings.Load runs in Main, which no test calls. -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>HostedFields.Tests</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../HostedFields.csproj" />
+  </ItemGroup>
+
+</Project>

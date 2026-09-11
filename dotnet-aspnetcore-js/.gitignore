@@ -1,0 +1,3 @@
+# The .NET build output. .env and *.pem are ignored repository wide, see the root .gitignore.
+bin/
+obj/
