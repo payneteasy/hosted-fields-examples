@@ -16,10 +16,11 @@ cd "$(dirname "$0")/.."
 PLAIN_JS_APPS=(
   go-js
   nodejs-express-js
+  php-js
 )
 
 # React: the scripts and the views are components there, so only the stylesheet is shared.
-# That one file is what keeps the three looking identical.
+# That one file is what keeps every example looking identical.
 STYLESHEET_ONLY_APPS=(
   nextjs
 )
