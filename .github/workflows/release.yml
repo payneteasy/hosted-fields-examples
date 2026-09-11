@@ -73,6 +73,25 @@ jobs:
           tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
           rm -rf "../dist-release/${dir:?}"
 
+      # `output: 'standalone'` gives one server.js plus a minimal node_modules, so this
+      # artefact needs nothing but Node 20 either. BASE_PATH is baked in at build time, so the
+      # release carries the default prefix — rebuild from source to mount it elsewhere.
+      - name: nextjs
+        working-directory: nextjs
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="hosted-fields-examples-nextjs"
+          dir="${name}_${tag}"
+          yarn install --frozen-lockfile
+          yarn build
+          mkdir -p "../dist-release/$dir/.next"
+          cp -r .next/standalone/. "../dist-release/$dir/"
+          cp -r .next/static "../dist-release/$dir/.next/static"
+          cp -r public "../dist-release/$dir/public"
+          cp -r deploy "../dist-release/$dir/"
+          tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
+          rm -rf "../dist-release/${dir:?}"
+
       - name: checksums
         working-directory: dist-release
         run: sha256sum *.tar.gz *.zip > SHA256SUMS
@@ -95,5 +114,8 @@ jobs:
               a Linux server.
             - `hosted-fields-examples-nodejs-express-js_*.tar.gz` — bundled `server.js` with
               `public/`, `views/` and `deploy/`. Needs Node 20+, no `node_modules`.
+            - `hosted-fields-examples-nextjs.tar.gz` — the standalone Next.js server with
+              `public/`, `.next/` and `deploy/`. Needs Node 20+, `node server.js`. The URL
+              prefix is compiled in: rebuild from source to change it.
 
             Settings and the RSA key are supplied through the environment, see the README.

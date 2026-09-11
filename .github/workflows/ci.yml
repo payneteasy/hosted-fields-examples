@@ -52,17 +52,46 @@ jobs:
       - run: node --check src/*.js public/*.js
       - run: npm run build
 
+  nextjs:
+    name: nextjs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nextjs
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: yarn
+          cache-dependency-path: nextjs/yarn.lock
+
+      - run: yarn install --frozen-lockfile
+      # biome check + tsc --noEmit + steiger
+      - run: yarn lint
+      # No credentials here on purpose: the settings are validated on the first request, not
+      # at import, so a build must not need them.
+      - run: yarn build
+
   shared:
     # The premise of this repository is that the browser half does not depend on the server, so
-    # the two copies of it have to be identical. Kept honest here rather than by remembering.
+    # the copies of it have to be identical. Kept honest here rather than by remembering.
     name: shared frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: identical in both apps
+      - name: the stylesheet is identical in all three apps
+        # The React example cannot share the scripts or the views, but it serves this very
+        # file, so the design cannot drift away from the other two.
         run: |
-          for f in public/styles.css public/status.js public/checkout.js; do
+          for app in nodejs-express-js nextjs; do
+            diff go-js/public/styles.css "$app/public/styles.css"
+          done
+
+      - name: the scripts and views are identical in the two plain-JS apps
+        run: |
+          for f in public/status.js public/checkout.js; do
             diff "go-js/$f" "nodejs-express-js/$f"
           done
           # The views differ by one line on purpose: each server injects the config with its own

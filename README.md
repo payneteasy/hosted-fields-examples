@@ -1,7 +1,8 @@
 # Hosted Fields examples
 
-Two working merchant integrations of [Hosted Fields][docs], one on Go and one on Node.js. Same
-payment, same screens, same flow — only the server language differs.
+Three working merchant integrations of [Hosted Fields][docs]: one on Go, one on Node.js and one
+on Next.js. Same payment, same screens, same flow — what differs is the server language and, in
+the third, whether the page is a static file or a React tree.
 
 ## The examples
 
@@ -9,13 +10,20 @@ payment, same screens, same flow — only the server language differs.
 | --- | --- | --- | --- |
 | **Go** | Go 1.24+, standard library only | [`go-js/`](go-js/) | [`main.go`](go-js/main.go) routes · [`paynet.go`](go-js/paynet.go) the three gateway calls · [`oauth.go`](go-js/oauth.go) request signing |
 | **Node.js** | Node 20+, express only | [`nodejs-express-js/`](nodejs-express-js/) | [`src/server.js`](nodejs-express-js/src/server.js) routes · [`src/paynet.js`](nodejs-express-js/src/paynet.js) the three gateway calls · [`src/oauth.js`](nodejs-express-js/src/oauth.js) request signing |
+| **Next.js** | Node 20+, React 19, TypeScript | [`nextjs/`](nextjs/) | [`src/app/`](nextjs/src/app/) pages and route handlers · [`src/shared/lib/paynet.ts`](nextjs/src/shared/lib/paynet.ts) the three gateway calls · [`src/shared/ui/checkout-form.tsx`](nextjs/src/shared/ui/checkout-form.tsx) the page |
 
-The browser half is shared and **byte-for-byte identical** between them —
+Between the Go and the Node.js examples the browser half is **byte-for-byte identical** —
 [`public/checkout.js`](go-js/public/checkout.js) sets up the fields and tokenizes,
 [`public/status.js`](go-js/public/status.js) polls the order,
 [`views/checkout.html`](go-js/views/checkout.html) is the page. That is the point of having two:
 everything interesting about Hosted Fields happens in the page, and the server behind it is
 interchangeable. Pick whichever language you work in and ignore the other.
+
+The Next.js example answers the other question — what this looks like when the page is React.
+It cannot share those files, so they are ported to components, but it serves the very same
+[`public/styles.css`](go-js/public/styles.css) and the screens are the same to the pixel. Its
+own subject is the seam: an SDK that injects cross-origin iframes imperatively, into elements
+React also owns. See [nextjs/README.md](nextjs/README.md#react-and-a-cross-origin-sdk).
 
 ## What it looks like
 
@@ -41,6 +49,7 @@ the older ones and the checksums.
 | Go | macOS Apple silicon | [`..._darwin_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go_darwin_arm64.tar.gz) | `tar -xzf`, then `xattr -d com.apple.quarantine hosted-fields-examples-go` — the binary is not notarised |
 | Go | Windows x64 | [`..._windows_amd64.zip`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go_windows_amd64.zip) | unzip, set the environment, run the `.exe` |
 | Node.js | any | [`...nodejs-express-js.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nodejs-express-js.tar.gz) | `tar -xzf`, then `node server.js` — needs Node 20+, no `npm install` |
+| Next.js | any | [`...nextjs.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nextjs.tar.gz) | the same, `node server.js` — but the URL prefix is compiled in, so rebuild from source to change it |
 
 The Linux archives also carry `deploy/` with a systemd unit, an nginx snippet and an environment
 template. The macOS and Windows builds do not: those are for trying the example on a laptop.
@@ -67,6 +76,11 @@ Identical in both examples. `{prefix}` is the URL prefix each app is mounted und
 | 3 | `POST {prefix}/pay` | the server sends a Sale with `hosted_fields_token` in place of the card parameters |
 | 4 | `GET {prefix}/status` | the page polls the order status every four seconds until a final status |
 | 5 | `GET`/`POST {prefix}/result` | where the payer lands after a 3DS challenge; the gateway returns them with a POST whose `control` checksum is verified before the page renders |
+
+In the Next.js example step 5 is split in two, because an App Router page cannot serve a POST:
+the gateway posts to `{prefix}/result/callback`, which verifies the checksum and redirects to
+`{prefix}/result`. The verified order travels in an `httpOnly` cookie, so it still never passes
+through the browser's URL.
 
 The card data goes from the iframes straight to the gateway. Your server only ever sees a token.
 
@@ -108,26 +122,37 @@ cp .env.example .env          # the same values
 npm start                     # http://localhost:3000/hosted-fields-examples-nodejs-express-js/
 ```
 
+```bash
+# Next.js — needs Node 20+, yarn
+cd nextjs
+yarn install
+cp .env.example .env          # the same values again
+yarn dev                      # http://localhost:3002/hosted-fields-examples-nextjs/
+```
+
 Sandbox test card: `4444 4444 4444 4448`, any future expiry, CVV `123`.
 
 Each app has its own README with the details — settings, the 3DS return, deployment behind nginx:
-[go-js/README.md](go-js/README.md) · [nodejs-express-js/README.md](nodejs-express-js/README.md)
+[go-js/README.md](go-js/README.md) · [nodejs-express-js/README.md](nodejs-express-js/README.md) ·
+[nextjs/README.md](nextjs/README.md)
 
 ## Layout
 
 ```
 go-js/                  Go + plain JS, assets embedded in the binary
 nodejs-express-js/      Node.js + Express + plain JS
+nextjs/                 Next.js + React + TypeScript
 ```
 
-Five files are **shared and must stay byte-for-byte identical** between the two:
+`public/styles.css` is **shared by all three and must stay byte-for-byte identical**. Four more
+files are shared by the two plain-JS apps:
 
 ```
-public/styles.css  public/status.js  public/checkout.js
-views/checkout.html  views/result.html
+public/status.js  public/checkout.js  views/checkout.html  views/result.html
 ```
 
-Exactly one line may differ — the config injection, which uses each server's template syntax:
+In the views exactly one line may differ — the config injection, which uses each server's
+template syntax:
 
 ```
 go-js:              <script>window.CONFIG = {{ . }};</script>
@@ -135,7 +160,9 @@ nodejs-express-js:  <script>window.CONFIG = __CONFIG__;</script>
 ```
 
 Edit one copy, copy it across, swap that line back. CI checks this on every push, because the
-whole premise of the repository is that the browser half does not depend on the server.
+whole premise of the repository is that the browser half does not depend on the server. The
+Next.js copy of the markup is components rather than a file, so only the stylesheet is diffed
+against it — which is enough to keep the three from looking different.
 
 ## A note on the payer-facing language
 
