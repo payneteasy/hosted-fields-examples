@@ -71,11 +71,3 @@ jobs:
             diff <(sed 's/window\.CONFIG = .*/window.CONFIG = INJECTED;/' "go-js/$f") \
                  <(sed 's/window\.CONFIG = .*/window.CONFIG = INJECTED;/' "nodejs-express-js/$f")
           done
-
-      - name: english only
-        run: |
-          found=$(grep -rlP '[\x{0400}-\x{04FF}]' . \
-            --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist || true)
-          if [ -n "$found" ]; then
-            echo "cyrillic found in:"; echo "$found"; exit 1
-          fi

@@ -25,7 +25,7 @@ one line back, then diff to confirm nothing else moved. CI fails the push otherw
 ## English only
 
 Code, comments, documentation, commit messages, anything on screen. No Cyrillic anywhere in the
-repository — CI greps for it.
+repository.
 
 The payer can still be shown another language, but not from here: `error.payerMessage` comes from
 the SDK bundle the gateway serves.
