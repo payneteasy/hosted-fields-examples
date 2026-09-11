@@ -49,7 +49,8 @@ Three things about it are load-bearing:
   `status`/`orderid`/`merchant_order`/`control` to `/result/callback`; the redirect forwards
   those four verbatim, and `GET /result` checks them again with the same function. The browser
   carries them but cannot forge them, so a hand-edited URL gets a `403` instead of a page that
-  polls somebody else's order.
+  polls somebody else's order. In `nextjs/` the `403` comes from `src/middleware.ts`, because a
+  React page cannot set a status code without an experimental flag.
 
 `nextjs/` is the one exception, and only to the first two rows: a React page gets its config as
 props from the server component, so it has no `config.js` and no `result-config.js`. Everything
