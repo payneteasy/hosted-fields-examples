@@ -6,7 +6,7 @@ export const PORT = process.env.PORT ?? 3000;
 // Interface to listen on. The default is loopback: the example speaks plain HTTP and trusts
 // X-Forwarded-For, both of which are only safe with a proxy in front. Set 0.0.0.0 knowingly.
 export const LISTEN_ADDR = process.env.LISTEN_ADDR ?? '127.0.0.1';
-export const BASE_PATH = process.env.BASE_PATH ?? '';
+export const BASE_PATH = process.env.BASE_PATH ?? '/hosted-fields-examples-nodejs-express-js';
 export const PUBLIC_URL = process.env.PUBLIC_URL ?? `http://localhost:${PORT}`;
 
 export const API_URL = process.env.API_URL;
@@ -24,7 +24,7 @@ export const MERCHANT_CONTROL = process.env.MERCHANT_CONTROL;
 export const PRIVATE_KEY = process.env.PRIVATE_KEY_PATH ? readFileSync(process.env.PRIVATE_KEY_PATH, 'utf8') : process.env.PRIVATE_KEY;
 
 export const ORDER_AMOUNT = process.env.ORDER_AMOUNT ?? '1.00';
-export const ORDER_CURRENCY = process.env.ORDER_CURRENCY ?? 'EUR';
+export const ORDER_CURRENCY = process.env.ORDER_CURRENCY ?? 'USD';
 
 // Where the gateway sends the payer back after a 3DS challenge. It POSTs there, so this is
 // /result/callback and not the /result page the callback then redirects to. Built from
