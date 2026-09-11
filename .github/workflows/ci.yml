@@ -153,6 +153,31 @@ jobs:
       # initialisation, so nothing here needs any.
       - run: ./mvnw -B verify
 
+  rust:
+    name: rust-axum-js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust-axum-js
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust-axum-js
+
+      # cargo fmt is the counterpart of gofmt, and clippy of `go vet` — both are in the toolchain,
+      # so unlike the Java job this needs no plugin to get them
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+
+      # The OAuth base string and the 3DS callback checksum, on the same vectors as the other
+      # jobs. No credentials: the settings are parsed in main(), which no test calls.
+      - run: cargo test
+      - run: cargo build --release
+
   nextjs:
     name: nextjs
     runs-on: ubuntu-latest
