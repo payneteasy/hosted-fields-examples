@@ -1,7 +1,7 @@
-// The three applications under test: how to start each one, and what to tell it.
+// The applications under test: how to start each one, and what to tell it.
 //
-// Every setting goes in as a process environment variable. All three examples let the real
-// environment win over their `.env` file, so a developer's own `.env` is neither read for these
+// Every setting goes in as a process environment variable. Every example lets the real
+// environment win over its `.env` file, so a developer's own `.env` is neither read for these
 // values nor written to — the harness leaves the working tree alone.
 
 import { existsSync } from 'node:fs';
@@ -38,8 +38,8 @@ export interface AppUnderTest {
 
 /**
  * Go is often installed outside PATH — on this machine it is ~/opt/go/bin/go. A missing
- * toolchain is a hard failure rather than a skip: a green run has to mean all three apps
- * really passed.
+ * toolchain is a hard failure rather than a skip: a green run has to mean every app really
+ * passed.
  */
 export function goBinary(): string {
   const candidates = [process.env.GO_BIN, join(homedir(), 'opt', 'go', 'bin', 'go')].filter(
@@ -94,6 +94,22 @@ export const APPS: AppUnderTest[] = [
     // .env. The settings are already in the environment.
     command: 'node src/server.js',
     env: gatewayEnv(4012),
+  },
+  {
+    name: 'php-js',
+    port: 4014,
+    basePath: '/hosted-fields-examples-php',
+    cwd: join(REPO_ROOT, 'php-js'),
+    // The port goes on the command line, not in the environment: PHP does not own the socket,
+    // `php -S` is told where to listen. PORT and LISTEN_ADDR still travel in env below, where
+    // the app ignores them.
+    command: `php -S ${HOST}:4014 router.php`,
+    // BASE_PATH is pinned here, and it is the only app that needs it. The Go binary is run from
+    // .tmp so its `.env` is out of reach; a PHP app has to run from its own directory, which
+    // puts php-js/.env back in reach. The real environment wins over that file for everything
+    // gatewayEnv passes, and this closes the one gap: a local BASE_PATH would move the app out
+    // from under the readiness probe.
+    env: { ...gatewayEnv(4014), BASE_PATH: '/hosted-fields-examples-php' },
   },
   {
     name: 'nextjs',
