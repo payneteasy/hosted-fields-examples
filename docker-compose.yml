@@ -28,11 +28,18 @@
 #    own listen port and PUBLIC_URL at once, so the three cannot disagree.
 #
 # This is a demo, not a deployment. It speaks plain HTTP and publishes nginx on a local port.
+#
+# It has a second job: e2e-tests/ runs the same specs against these containers rather than
+# against nine natively started apps. That mode reads docker-compose.e2e.yml on top of this
+# file — which is why env_file is optional here, so a run that passes every setting through
+# `environment:` needs no .env and no key at the repository root.
 
 # What every app service shares. Spelled once: nine copies of the same five lines is nine places
 # for one of them to quietly differ.
 x-app: &app
-  env_file: .env
+  env_file:
+    - path: .env
+      required: false
   environment:
     # The origin the payer's browser is sent back to after a 3DS challenge. Defaulted here rather
     # than in .env so it cannot fall out of step with the port above; override it in .env when

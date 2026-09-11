@@ -30,6 +30,34 @@ export const EMULATOR_PORT = Number(process.env.E2E_EMULATOR_PORT ?? 4010);
 export const HOST = '127.0.0.1';
 export const EMULATOR_ORIGIN = `http://${HOST}:${EMULATOR_PORT}`;
 
+/**
+ * Which mode this run is in.
+ *
+ * `native` starts every app itself, one per port, and needs a toolchain for each — that is what
+ * `npm test` does. `docker` runs the same specs against docker-compose.yml instead, so the only
+ * thing that has to be installed is Docker; `npm run test:docker` sets this.
+ */
+export const TARGET = process.env.E2E_TARGET === 'docker' ? 'docker' : 'native';
+
+/**
+ * The port nginx answers on in the docker mode. Not a knob: docker-compose.e2e.yml spells it too,
+ * as the published port, as nginx's own `listen` and as the port in every app's PUBLIC_URL, and
+ * all four have to be the one number. The emulator recomputes the URL an app signed rather than
+ * reading the request's Host, so an address that differs inside the stack and out verifies
+ * nowhere. Change it here and in that file together.
+ */
+export const NGINX_PORT = 4020;
+/** Where all nine apps answer in the docker mode — one origin, nine prefixes. */
+export const NGINX_ORIGIN = `http://${HOST}:${NGINX_PORT}`;
+
+/**
+ * The interface the emulator binds. It stays 127.0.0.1 natively; in the docker mode the emulator
+ * runs in a container, where a published port only reaches a server bound to 0.0.0.0. What it
+ * *advertises* is EMULATOR_ORIGIN either way — the apps sign that string and the emulator
+ * recomputes it, so it may not vary with where the socket happens to be.
+ */
+export const EMULATOR_BIND = process.env.E2E_EMULATOR_HOST ?? HOST;
+
 /** What the apps are given. API_URL must not end in a slash: they append `/api/v4/...`. */
 export const API_URL = EMULATOR_ORIGIN;
 export const SDK_URL = `${EMULATOR_ORIGIN}/sdk.js`;

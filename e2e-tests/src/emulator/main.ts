@@ -2,11 +2,13 @@
 // emulator`, then point an app at it by hand to click through the flow.
 
 import { ensureKeypair } from '../keys.ts';
-import { EMULATOR_PORT, HOST } from '../settings.ts';
+import { EMULATOR_BIND, EMULATOR_ORIGIN, EMULATOR_PORT } from '../settings.ts';
 import { createEmulator } from './server.ts';
 
 ensureKeypair();
 
-createEmulator().listen(EMULATOR_PORT, HOST, () => {
-  console.log('[emulator] listening on http://%s:%d', HOST, EMULATOR_PORT);
+// Bound where the socket can be reached, logged as the one origin everything signs: in a
+// container those are not the same address. See EMULATOR_BIND.
+createEmulator().listen(EMULATOR_PORT, EMULATOR_BIND, () => {
+  console.log('[emulator] listening on %s', EMULATOR_ORIGIN);
 });

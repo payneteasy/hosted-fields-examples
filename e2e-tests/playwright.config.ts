@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { APPS, appOrigin } from './src/apps.ts';
+import { APPS, appOrigin, selectedApps, startedApps } from './src/apps.ts';
 import { ensureKeypair } from './src/keys.ts';
 import { EMULATOR_PORT, HOST, PROJECT_ROOT } from './src/settings.ts';
 
@@ -9,29 +9,12 @@ import { EMULATOR_PORT, HOST, PROJECT_ROOT } from './src/settings.ts';
 ensureKeypair();
 
 /* Starting every app costs a `next build` and a pip install, so a run that asks for one project
-   should not pay for the rest. Playwright has no per-project webServer, but it does hand us the
-   command line. */
-function selectedProjects(): string[] {
-  const names: string[] = [];
-  const argv = process.argv;
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--project' || arg === '-p') {
-      const value = argv[index + 1];
-      if (value) names.push(value);
-    } else if (arg?.startsWith('--project=')) {
-      names.push(arg.slice('--project='.length));
-    }
-  }
-  return names;
-}
-
-const wanted = selectedProjects();
+   should not pay for the rest. Playwright has no per-project webServer, but startedApps() reads
+   the command line it does hand us. */
+const appsToStart = startedApps();
 /* What a bare `npm test` covers. An app marked onRequestOnly is still a project, so
    `--project=<name>` finds it — it is only left out of the default set. */
-const byDefault = APPS.filter((app) => !app.onRequestOnly);
-const appsToRun = wanted.length > 0 ? APPS : byDefault;
-const appsToStart = wanted.length > 0 ? APPS.filter((app) => wanted.includes(app.name)) : byDefault;
+const appsToRun = selectedApps().length > 0 ? APPS : APPS.filter((app) => !app.onRequestOnly);
 
 export default defineConfig({
   testDir: './e2e',
