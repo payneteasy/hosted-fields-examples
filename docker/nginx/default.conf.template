@@ -7,9 +7,15 @@
 #
 # They say `proxy_pass http://127.0.0.1:300x`, and they work here verbatim because every app
 # container shares this container's network namespace. See the comment in docker-compose.yml.
+#
+# A .template, because the listen port is a variable: the nginx image's entrypoint runs envsubst
+# over /etc/nginx/templates/*.template on startup and writes the result to conf.d/. It rewrites
+# every $name it finds, so this file holds no nginx variable of its own — and the nine mounted
+# snippets are not templates, which is what keeps their $host and $proxy_add_x_forwarded_for
+# intact.
 
 server {
-    listen 8080;
+    listen ${NGINX_PORT};
     server_name _;
 
     # The nine prefixes, byte for byte as each example ships them
