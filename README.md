@@ -1,8 +1,8 @@
 # Hosted Fields examples
 
-Six working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on PHP, on Python,
-on Ruby and on Next.js. Same payment, same screens, same flow — what differs is the server
-language and, in the last, whether the page is a static file or a React tree.
+Seven working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on PHP, on
+Python, on Ruby, on Java and on Next.js. Same payment, same screens, same flow — what differs is
+the server language and, in the last, whether the page is a static file or a React tree.
 
 ## The examples
 
@@ -13,6 +13,7 @@ language and, in the last, whether the page is a static file or a React tree.
 | **PHP** | PHP 8.4+, no Composer | [`php-js/`](php-js/) | [`index.php`](php-js/index.php) routes · [`paynet.php`](php-js/paynet.php) the three gateway calls · [`oauth.php`](php-js/oauth.php) request signing |
 | **Python** | Python 3.12+, Flask | [`python-flask-js/`](python-flask-js/) | [`app.py`](python-flask-js/app.py) routes · [`paynet.py`](python-flask-js/paynet.py) the three gateway calls · [`oauth.py`](python-flask-js/oauth.py) request signing |
 | **Ruby** | Ruby 3.1+, Sinatra | [`ruby-sinatra-js/`](ruby-sinatra-js/) | [`app.rb`](ruby-sinatra-js/app.rb) routes · [`paynet.rb`](ruby-sinatra-js/paynet.rb) the three gateway calls · [`oauth.rb`](ruby-sinatra-js/oauth.rb) request signing |
+| **Java** | JDK 21+, Spring Boot | [`java-springboot-js/`](java-springboot-js/) | [`Routes.java`](java-springboot-js/src/main/java/com/payneteasy/hostedfields/Routes.java) routes · [`Paynet.java`](java-springboot-js/src/main/java/com/payneteasy/hostedfields/Paynet.java) the three gateway calls · [`OAuth.java`](java-springboot-js/src/main/java/com/payneteasy/hostedfields/OAuth.java) request signing |
 | **Next.js** | Node 20+, React 19, TypeScript | [`nextjs/`](nextjs/) | [`src/app/`](nextjs/src/app/) pages and route handlers · [`src/shared/lib/paynet.ts`](nextjs/src/shared/lib/paynet.ts) the three gateway calls · [`src/shared/ui/checkout-form.tsx`](nextjs/src/shared/ui/checkout-form.tsx) the page |
 
 The browser half lives once, in [`shared/`](shared/) —
@@ -57,6 +58,7 @@ the older ones and the checksums.
 | PHP | any | [`...php.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-php.tar.gz) | `tar -xzf`, then `php -S 127.0.0.1:3003 router.php` — needs PHP 8.4+, no Composer |
 | Python | any | [`...python.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-python.tar.gz) | `tar -xzf`, then `pip install -r requirements.txt` in a venv and `python app.py` — needs Python 3.12+ |
 | Ruby | any | [`...ruby.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-ruby.tar.gz) | `tar -xzf`, then `bundle install` and `bundle exec ruby app.rb` — needs Ruby 3.1+, not macOS's 2.6 |
+| Java | any | [`...java.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-java.tar.gz) | `tar -xzf`, then `java -jar hosted-fields-example-java.jar` — needs a JRE 21+ and nothing else, the pages are inside the jar |
 | Next.js | any | [`...nextjs.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nextjs.tar.gz) | the same, `node server.js` — but the URL prefix is compiled in, so rebuild from source to change it |
 
 The Linux archives also carry `deploy/` with a systemd unit, an nginx snippet and an environment
@@ -109,9 +111,9 @@ Put the key next to the app as `private_key.pem` or point `PRIVATE_KEY_PATH` at 
 `*.key` and `.env` are git-ignored repository wide — keep it that way.
 
 None of these have defaults. Every example refuses to serve a payment until all of them are set,
-rather than falling back to a host baked in at some point and forgotten. Go, Express, Flask and
-Sinatra check at startup; Next checks on the first request, so that a build needs no credentials,
-and PHP on every request, because it has no startup to check at.
+rather than falling back to a host baked in at some point and forgotten. Go, Express, Flask,
+Sinatra and Spring Boot check at startup; Next checks on the first request, so that a build needs
+no credentials, and PHP on every request, because it has no startup to check at.
 
 ## Run
 
@@ -158,6 +160,13 @@ bundle exec ruby app.rb       # http://localhost:3005/hosted-fields-examples-rub
 ```
 
 ```bash
+# Java — needs a JDK 21+; ./mvnw is the Maven wrapper, so no Maven has to be installed
+cd java-springboot-js
+cp .env.example .env          # the same values
+./mvnw spring-boot:run        # http://localhost:3006/hosted-fields-examples-java/
+```
+
+```bash
 # Next.js — needs Node 20+, yarn
 cd nextjs
 yarn install
@@ -170,7 +179,8 @@ Sandbox test card: `4444 4444 4444 4448`, any future expiry, CVV `123`.
 Each app has its own README with the details — settings, the 3DS return, deployment behind nginx:
 [go-js/README.md](go-js/README.md) · [nodejs-express-js/README.md](nodejs-express-js/README.md) ·
 [php-js/README.md](php-js/README.md) · [python-flask-js/README.md](python-flask-js/README.md) ·
-[ruby-sinatra-js/README.md](ruby-sinatra-js/README.md) · [nextjs/README.md](nextjs/README.md)
+[ruby-sinatra-js/README.md](ruby-sinatra-js/README.md) ·
+[java-springboot-js/README.md](java-springboot-js/README.md) · [nextjs/README.md](nextjs/README.md)
 
 ## Layout
 
@@ -182,6 +192,7 @@ nodejs-express-js/      Node.js + Express + plain JS
 php-js/                 PHP + plain JS, no Composer
 python-flask-js/        Python + Flask + plain JS
 ruby-sinatra-js/        Ruby + Sinatra + plain JS
+java-springboot-js/     Java + Spring Boot + plain JS, assets packaged into the jar
 nextjs/                 Next.js + React + TypeScript
 e2e-tests/              a fake gateway, and every app driven through a browser
 ```
