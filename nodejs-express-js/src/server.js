@@ -32,6 +32,33 @@ function sendConfigJS(res, config) {
 
 const sendView = (res, name) => res.sendFile(join(viewsDir, name));
 
+// The 3DS 2.0 fields the page is allowed to supply. Everything the Sale needs besides these —
+// amount, currency, redirect_url, hosted_fields_token, client_orderid — is the server's own, so
+// the request body is filtered here rather than merged: a body that named `amount` would
+// otherwise have chosen what the payer is charged.
+const BROWSER_FIELDS = [
+  'customer_browser_info',
+  'customer_browser_javascript_enabled',
+  'customer_browser_java_enabled',
+  'customer_browser_accept_language',
+  'customer_browser_color_depth',
+  'customer_browser_screen_width',
+  'customer_browser_screen_height',
+  'customer_browser_time_zone',
+];
+
+// The two headers below are read from the request, never from the body, so they cannot be spoofed
+// by the caller. Unknown keys are dropped.
+function pickBrowser(src, headers) {
+  const browser = {};
+  for (const name of BROWSER_FIELDS) {
+    if (src?.[name] !== undefined) browser[name] = String(src[name]);
+  }
+  browser.customer_browser_accept_header = headers.accept ?? '*/*';
+  browser.customer_browser_user_agent = headers['user-agent'] ?? '';
+  return browser;
+}
+
 // The gateway wants a plain address for fraud screening, not an IPv6-mapped loopback
 function clientIp(req) {
   const ip = req.ip ?? '';
@@ -81,14 +108,11 @@ router.post('/pay', async (req, res, next) => {
       clientOrderId,
       customer,
       ipaddress: clientIp(req),
-      browser: {
-        ...browser,
-        customer_browser_accept_header: req.headers.accept ?? '*/*',
-        customer_browser_user_agent: req.headers['user-agent'] ?? '',
-      },
+      browser: pickBrowser(browser, req.headers),
     });
 
-    res.json({ clientOrderId, ...sale });
+    // clientOrderId last: it is the server's, and a gateway field of the same name must not win
+    res.json({ ...sale, clientOrderId });
   } catch (error) {
     next(error);
   }

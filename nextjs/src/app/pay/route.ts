@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { pickBrowser } from '@/shared/lib/browser-info';
 import { clientIp } from '@/shared/lib/callback';
 import type { Customer } from '@/shared/lib/customer';
 import { createSale } from '@/shared/lib/paynet';
@@ -33,11 +34,7 @@ export async function POST(request: Request) {
       hostedFieldsToken: payment.hostedFieldsToken,
       clientOrderId,
       ipaddress: clientIp(request.headers),
-      browser: {
-        ...payment.browser,
-        customer_browser_accept_header: request.headers.get('accept') ?? '*/*',
-        customer_browser_user_agent: request.headers.get('user-agent') ?? '',
-      },
+      browser: pickBrowser(payment.browser, request.headers),
       customer: payment.customer ?? {
         firstName: '',
         lastName: '',
@@ -46,7 +43,8 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ clientOrderId, ...sale });
+    // clientOrderId last: it is the server's, and a gateway field of the same name must not win
+    return NextResponse.json({ ...sale, clientOrderId });
   } catch (error) {
     return fail(error);
   }

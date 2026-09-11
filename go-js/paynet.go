@@ -68,9 +68,13 @@ func createSale(hostedFieldsToken, clientOrderID, ipAddress string, browser url.
 		"ipaddress":           {ipAddress},
 		"redirect_url":        {cfg.redirectURL()},
 	}
-	// 3DS 2.0 browser data, required by /api/v4/sale
+	// 3DS 2.0 browser data, required by /api/v4/sale. It comes from the page, so a parameter the
+	// server has already set is never taken from it: handlePay filters the body to the documented
+	// keys and this loop refuses to overwrite, so neither guard is load-bearing on its own.
 	for key, values := range browser {
-		params[key] = values
+		if _, taken := params[key]; !taken {
+			params[key] = values
+		}
 	}
 	return postJSON("/api/v4/sale/", params)
 }
