@@ -1,7 +1,7 @@
 # Hosted Fields examples
 
-Three merchant integrations of the same payment — `go-js/`, `nodejs-express-js/` and `nextjs/`.
-They exist to be read, so clarity beats cleverness everywhere in this repository.
+Four merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/` and
+`nextjs/`. They exist to be read, so clarity beats cleverness everywhere in this repository.
 
 ## The rule that breaks most often
 
@@ -19,7 +19,7 @@ Never edit a copy — the script overwrites it, and CI runs the script and then
 `git diff --exit-code`, so forgetting cannot reach main.
 
 `nextjs/` takes only `styles.css`: its scripts and views are React components. That one file is
-what keeps the three looking identical.
+what keeps every example looking identical.
 
 There are no exceptions and no per-app lines. Nothing in `views/` is templated — see below.
 
@@ -101,6 +101,24 @@ elements. Four rules, each explained where it is enforced:
 - settings are validated **lazily**, not at module import: `next build` imports the route
   modules, and CI builds without credentials.
 
+## PHP, in `php-js/` only
+
+No Composer and no framework, so the whole app is six files of plain functions. Four rules, each
+explained where it is enforced:
+
+- **`router.php` never `return false`s.** The app root is the `php -S` document root, so a
+  delegated request would serve `.env` or execute `paynet.php`. `index.php` answers every path
+  and serves `public/` from an allowlist, which is also why the nginx block has no `root` and no
+  `try_files`;
+- settings are validated **per request**, in `settings()`, because PHP has no startup to refuse
+  at — a missing name is a `500` with the detail in the log, and the tests and `php -l` need no
+  credentials;
+- the signature encoder is **`rawurlencode`**, and every sort is **`ksort(…, SORT_STRING)`**:
+  `urlencode` writes `+` for a space, and the default sort reads numeric-looking keys as numbers;
+- forms are parsed by **`form_params()`**, not `$_POST`/`$_GET`, which rewrite `.` and a space in
+  a name and keep the last of a repeated one. The 3DS return is verified and then forwarded, and
+  those must be the same value.
+
 ## Frontend constraints
 
 Everywhere:
@@ -116,7 +134,7 @@ Everywhere:
   header and not a violation of the no-templating rule. `nextjs/` is the exception again: Next
   emits its own inline scripts, so its middleware mints a nonce per request instead.
 
-In `go-js/` and `nodejs-express-js/`:
+In `go-js/`, `nodejs-express-js/` and `php-js/`:
 
 - No dependencies and no bundler for the browser half.
 - `public/` is ES5: `var`, `function`, no arrow functions, no template literals.
@@ -136,6 +154,7 @@ only.
 ./scripts/sync-shared.sh && git diff --exit-code   # every copy matches shared/
 cd go-js             && gofmt -l . && go vet ./... && go build ./...
 cd nodejs-express-js && npm ci && npm run build
+cd php-js            && php -l *.php tests/*.php && php tests/run.php
 cd nextjs            && yarn install && yarn lint && yarn build
 ```
 
@@ -143,12 +162,12 @@ The first line is what CI runs — see `.github/workflows/ci.yml`.
 
 ## The end-to-end tests
 
-`e2e-tests/` starts a fake gateway on one origin, points all three apps at it with environment
+`e2e-tests/` starts a fake gateway on one origin, points every app at it with environment
 variables and drives a browser through the payment. It is **local only and not part of CI or of
-the checks above** — it needs three toolchains, a browser and a `next build`.
+the checks above** — it needs every toolchain, a browser and a `next build`.
 
 ```bash
-cd e2e-tests && npm test        # or test:go / test:express / test:nextjs
+cd e2e-tests && npm test        # or test:go / test:express / test:php / test:nextjs
 ```
 
 Four things about it are load-bearing:
@@ -156,8 +175,8 @@ Four things about it are load-bearing:
 - **It is a standalone npm project.** Playwright is never added to an app's `package.json`: the
   dependency lists in `nodejs-express-js/` and `nextjs/` are deliberately minimal, and that is
   part of what the examples demonstrate.
-- **It changes nothing in an app.** Every setting reaches the three servers as a process
-  environment variable, which wins over `.env` in all three, so no `.env` is read for those
+- **It changes nothing in an app.** Every setting reaches every server as a process
+  environment variable, which wins over `.env` in all of them, so no `.env` is read for those
   values or written. If a change to an app looks necessary to make a test pass, the test has
   probably found something.
 - **`API_URL` and `SDK_URL` must name the same origin**, because each app builds its

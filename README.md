@@ -1,8 +1,8 @@
 # Hosted Fields examples
 
-Three working merchant integrations of [Hosted Fields][docs]: one on Go, one on Node.js and one
-on Next.js. Same payment, same screens, same flow — what differs is the server language and, in
-the third, whether the page is a static file or a React tree.
+Four working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on PHP and on
+Next.js. Same payment, same screens, same flow — what differs is the server language and, in the
+last, whether the page is a static file or a React tree.
 
 ## The examples
 
@@ -10,6 +10,7 @@ the third, whether the page is a static file or a React tree.
 | --- | --- | --- | --- |
 | **Go** | Go 1.24+, standard library only | [`go-js/`](go-js/) | [`main.go`](go-js/main.go) routes · [`paynet.go`](go-js/paynet.go) the three gateway calls · [`oauth.go`](go-js/oauth.go) request signing |
 | **Node.js** | Node 20+, express only | [`nodejs-express-js/`](nodejs-express-js/) | [`src/server.js`](nodejs-express-js/src/server.js) routes · [`src/paynet.js`](nodejs-express-js/src/paynet.js) the three gateway calls · [`src/oauth.js`](nodejs-express-js/src/oauth.js) request signing |
+| **PHP** | PHP 8.4+, no Composer | [`php-js/`](php-js/) | [`index.php`](php-js/index.php) routes · [`paynet.php`](php-js/paynet.php) the three gateway calls · [`oauth.php`](php-js/oauth.php) request signing |
 | **Next.js** | Node 20+, React 19, TypeScript | [`nextjs/`](nextjs/) | [`src/app/`](nextjs/src/app/) pages and route handlers · [`src/shared/lib/paynet.ts`](nextjs/src/shared/lib/paynet.ts) the three gateway calls · [`src/shared/ui/checkout-form.tsx`](nextjs/src/shared/ui/checkout-form.tsx) the page |
 
 The browser half lives once, in [`shared/`](shared/) —
@@ -51,6 +52,7 @@ the older ones and the checksums.
 | Go | macOS Apple silicon | [`..._darwin_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go_darwin_arm64.tar.gz) | `tar -xzf`, then `xattr -d com.apple.quarantine hosted-fields-examples-go` — the binary is not notarised |
 | Go | Windows x64 | [`..._windows_amd64.zip`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go_windows_amd64.zip) | unzip, set the environment, run the `.exe` |
 | Node.js | any | [`...nodejs-express-js.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nodejs-express-js.tar.gz) | `tar -xzf`, then `node server.js` — needs Node 20+, no `npm install` |
+| PHP | any | [`...php.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-php.tar.gz) | `tar -xzf`, then `php -S 127.0.0.1:3003 router.php` — needs PHP 8.4+, no Composer |
 | Next.js | any | [`...nextjs.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nextjs.tar.gz) | the same, `node server.js` — but the URL prefix is compiled in, so rebuild from source to change it |
 
 The Linux archives also carry `deploy/` with a systemd unit, an nginx snippet and an environment
@@ -69,7 +71,7 @@ three boxes holding card data are not.
 
 ## The flow
 
-Identical in all three examples. `{prefix}` is the URL prefix each app is mounted under.
+Identical in every example. `{prefix}` is the URL prefix each app is mounted under.
 
 | # | Where | What happens |
 | - | ----- | ------------ |
@@ -104,13 +106,14 @@ Put the key next to the app as `private_key.pem` or point `PRIVATE_KEY_PATH` at 
 
 None of these have defaults. Every example refuses to serve a payment until all of them are set,
 rather than falling back to a host baked in at some point and forgotten. Go and Express check at
-startup; Next checks on the first request, so that a build needs no credentials.
+startup; Next checks on the first request, so that a build needs no credentials, and PHP on every
+request, because it has no startup to check at.
 
 ## Run
 
-All three mount everything under a URL prefix, so they can sit behind one nginx at once, and
-all three bind to `127.0.0.1` by default — they speak plain HTTP and trust `X-Forwarded-For`, so
-a proxy belongs in front.
+They all mount everything under a URL prefix, so they can sit behind one nginx at once, and they
+all listen on `127.0.0.1` by default — they speak plain HTTP and trust `X-Forwarded-For`, so a
+proxy belongs in front.
 
 ```bash
 # Go — needs Go 1.24+, no dependencies at all
@@ -128,6 +131,13 @@ npm start                     # http://localhost:3000/hosted-fields-examples-nod
 ```
 
 ```bash
+# PHP — needs PHP 8.4+ with curl and openssl, no Composer
+cd php-js
+cp .env.example .env          # the same values
+php -S 127.0.0.1:3003 router.php   # http://localhost:3003/hosted-fields-examples-php/
+```
+
+```bash
 # Next.js — needs Node 20+, yarn
 cd nextjs
 yarn install
@@ -139,7 +149,7 @@ Sandbox test card: `4444 4444 4444 4448`, any future expiry, CVV `123`.
 
 Each app has its own README with the details — settings, the 3DS return, deployment behind nginx:
 [go-js/README.md](go-js/README.md) · [nodejs-express-js/README.md](nodejs-express-js/README.md) ·
-[nextjs/README.md](nextjs/README.md)
+[php-js/README.md](php-js/README.md) · [nextjs/README.md](nextjs/README.md)
 
 ## Layout
 
@@ -148,8 +158,9 @@ shared/                 the browser half, once
 scripts/sync-shared.sh  copies it into every app
 go-js/                  Go + plain JS, assets embedded in the binary
 nodejs-express-js/      Node.js + Express + plain JS
+php-js/                 PHP + plain JS, no Composer
 nextjs/                 Next.js + React + TypeScript
-e2e-tests/              a fake gateway, and all three driven through a browser
+e2e-tests/              a fake gateway, and every app driven through a browser
 ```
 
 The copies stay committed, so every app directory runs on its own with no pre-step and the
@@ -165,7 +176,7 @@ is no per-file list anywhere and no line that is allowed to differ — the confi
 the HTML and became `config.js`, which is why a fourth or a seventh language costs nothing here.
 
 `nextjs/` takes only `styles.css`: its scripts and views are React components. That one shared
-file is what keeps the three from looking different.
+file is what keeps them from looking different.
 
 ## What an example leaves for you
 
@@ -182,7 +193,8 @@ have, listed so that copying this code does not quietly copy the gaps too:
 - **Nothing is rate limited.** Each page load spends an ephemeral ticket, and nothing stops a
   caller from loading the page in a loop.
 - **The billing address in the Sale is demo data** — the Seattle address in `paynet.go`,
-  `paynet.js` and `paynet.ts` is there so the call is complete. Send the payer's real one.
+  `paynet.js`, `paynet.php` and `paynet.ts` is there so the call is complete. Send the payer's
+  real one.
 - **The apps bind to `127.0.0.1`** and take `X-Forwarded-For` on trust, because they speak plain
   HTTP and expect nginx in front. Exposed directly, the address the gateway screens for fraud
   becomes whatever the caller says it is.
@@ -194,11 +206,11 @@ messages come from the SDK bundle the gateway serves, as `error.payerMessage`, n
 If you show the payer text in a language of your own, switch on `error.code` and supply your own
 string — codes are stable and are never reused.
 
-## Checking all three at once
+## Checking them all at once
 
-The three examples are the same payment written three times, and `e2e-tests/` is what checks that
+The examples are the same payment written once per language, and `e2e-tests/` is what checks that
 they still are. It starts a fake gateway on one local origin — the API the servers call and the
-Hosted Fields SDK the browser loads — points all three apps at it with environment variables, and
+Hosted Fields SDK the browser loads — points every app at it with environment variables, and
 drives a real browser through the payment.
 
 ```bash
@@ -207,7 +219,7 @@ npm install && npm run browser   # once
 npm test
 ```
 
-It runs locally only, not in CI, and it needs all three toolchains. The signatures and the 3DS
+It runs locally only, not in CI, and it needs every toolchain. The signatures and the 3DS
 checksum are verified rather than accepted, so a green run means the whole handshake works and
 not just that a page rendered. See [`e2e-tests/README.md`](e2e-tests/README.md).
 
