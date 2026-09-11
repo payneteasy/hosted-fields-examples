@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     return new NextResponse('malformed callback', { status: 400 });
   }
 
-  if (!validCallback(form)) {
+  if (!(await validCallback(form, serverConfig().merchantControl))) {
     console.error(`[error] callback signature mismatch for order ${form.get('orderid')}`);
     return new NextResponse('invalid callback signature', { status: 403 });
   }

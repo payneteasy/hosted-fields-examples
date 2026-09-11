@@ -38,12 +38,13 @@ export default async function ResultPage({
 
 /**
  * The query is only there when the payer came through /result/callback, and it carries the
- * gateway's own checksum over these very values. Rechecking it is what stops a hand-edited
- * URL: without it the page would happily poll somebody else's order.
+ * gateway's own checksum over these very values. Rechecking it is what stops a hand-edited URL:
+ * without it the page would happily poll somebody else's order.
  *
- * Unlike the other examples this answers with the empty page rather than a 403 — a React
- * page cannot set a status code without the experimental `forbidden()`, and refusing to show
- * the order is the part that matters.
+ * src/middleware.ts has already answered a bad signature with a 403, so in practice nothing
+ * reaches this check that would fail it. It stays because a page that reads an order id out of
+ * its own query should be the thing that verifies it: the day the matcher is edited, this is
+ * what keeps the order from being served anyway.
  */
 async function verifiedOrder(
   searchParams: Promise<SearchParams>,
@@ -59,7 +60,7 @@ async function verifiedOrder(
   if (orderId === '') {
     return null;
   }
-  if (!validCallback(query)) {
+  if (!(await validCallback(query, serverConfig().merchantControl))) {
     console.error(`[error] result signature mismatch for order ${orderId}`);
     return null;
   }

@@ -68,9 +68,13 @@ the same four signed parameters in the query.
 [`result/page.tsx`](src/app/result/page.tsx) checks them **again** before it shows an order.
 
 That second check is what makes carrying them in the URL safe: the browser cannot forge them,
-because it does not know `MERCHANT_CONTROL`. One difference from the other examples — a React
-page cannot set a status code without the experimental `forbidden()`, so a failed check renders
-the empty page rather than a `403`. Refusing to show the order is the part that matters.
+because it does not know `MERCHANT_CONTROL`. A hand-edited URL gets a `403`, exactly as in the
+other two examples — but it comes from [`src/middleware.ts`](src/middleware.ts) rather than from
+the page, because a React page cannot set a status code without the experimental `forbidden()`.
+A middleware runs before the page and can. It runs on the edge runtime, which is why
+[`callback.ts`](src/shared/lib/callback.ts) verifies the checksum with Web Crypto and takes
+`MERCHANT_CONTROL` as an argument: `node:crypto` and `node:fs` are not available there, and all
+three checks have to be the same function.
 Nothing is kept in `sessionStorage`. The callback carries the outcome too, but
 [the documentation](https://doc.payneteasy.com/integration/API_commands/merchant_callback_parameters.html)
 says not to treat it as the status — the page asks the status API instead.

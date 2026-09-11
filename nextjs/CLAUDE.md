@@ -43,9 +43,15 @@ not an FSD layer.
   `<link>` rather than imported, and Biome is configured to skip it, so that nothing can
   reformat it. Never edit it here — edit `shared/`, run `scripts/sync-shared.sh`.
 - **The 3DS return carries signed parameters in the query, not a cookie.** `result/callback`
-  verifies the gateway's `control` and forwards the same four values; `result/page.tsx` checks
-  them again. A React page cannot answer `403` without the experimental `forbidden()`, so a
-  failed check renders the empty page — which is the part that matters.
+  verifies the gateway's `control` and forwards the same four values; `src/middleware.ts`
+  answers a forged query with `403` before the page renders, and `result/page.tsx` checks them
+  once more. The middleware is there because a React page cannot set a status code without the
+  experimental `forbidden()`.
+- **`validCallback()` runs on the edge runtime**, because the middleware does. That is why it
+  uses Web Crypto rather than `node:crypto` and is handed `MERCHANT_CONTROL` instead of calling
+  `serverConfig()`, which reaches for `node:fs`. It is one function on purpose: the callback,
+  the middleware and the page must not be able to disagree about a valid signature. Both
+  `go-js` and `nodejs-express-js` carry the same vectors in their tests.
 - **Nothing server-side may reach a client component.** `src/shared/lib/index.ts` is the
   client-safe barrel; `oauth.ts`, `paynet.ts` and `callback.ts` are imported straight from
   `src/app/**` and must stay out of it.
