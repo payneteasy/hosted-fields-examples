@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.1</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.payneteasy</groupId>
+  <artifactId>hosted-fields-example-java</artifactId>
+  <version>0.1.0</version>
+  <name>hosted-fields-example-java</name>
+  <description>Hosted Fields example — Java + Spring Boot + plain JS</description>
+
+  <properties>
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <spotless-plugin.version>3.8.0</spotless-plugin.version>
+    <palantir-java-format.version>2.96.0</palantir-java-format.version>
+
+    <!-- Nullability static analysis (errorprone profile) -->
+    <jspecify.version>1.0.0</jspecify.version>
+    <errorprone.version>2.50.0</errorprone.version>
+    <nullaway.version>0.13.7</nullaway.version>
+  </properties>
+
+  <dependencies>
+    <!-- The only runtime dependency, and the subject of the example. Everything the integration
+         itself needs is in the JDK: java.net.http calls the gateway, java.security signs, and
+         HexFormat, MessageDigest and SecureRandom do the rest. Do not add a second without a
+         reason the example itself demonstrates. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- @NullMarked and @Nullable for the errorprone profile. Annotations only, no code. -->
+    <dependency>
+      <groupId>org.jspecify</groupId>
+      <artifactId>jspecify</artifactId>
+      <version>${jspecify.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- A fixed name, so the release step and e2e-tests/src/apps.ts can both name the jar -->
+    <finalName>hosted-fields-example-java</finalName>
+
+    <!-- views/ and public/ are copies of shared/, kept in step by scripts/sync-shared.sh. They
+         are packaged into the jar rather than read from the working directory: this is the Java
+         counterpart of go-js's //go:embed, and it is what makes the artefact one file with
+         nothing beside it. Change a page and you have to rebuild — there is nothing to edit on
+         a server. -->
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>public</directory>
+        <targetPath>public</targetPath>
+      </resource>
+      <resource>
+        <directory>views</directory>
+        <targetPath>views</targetPath>
+      </resource>
+    </resources>
+
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+
+      <!-- Java has no gofmt in the box. Spotless is this example's counterpart of it:
+           `./mvnw spotless:apply` formats, and the check below fails the build on anything
+           unformatted, the way the other examples' `php -l` and `ruby -c` do. -->
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless-plugin.version}</version>
+        <configuration>
+          <java>
+            <includes>
+              <include>src/main/java/**/*.java</include>
+              <include>src/test/java/**/*.java</include>
+            </includes>
+            <removeUnusedImports/>
+            <palantirJavaFormat>
+              <version>${palantir-java-format.version}</version>
+            </palantirJavaFormat>
+          </java>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotless-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- Null-safety static analysis, this example's counterpart of `go vet`. Opt-in, because it
+         forks javac and roughly doubles a cold compile: `./mvnw -Perrorprone compile`, which is
+         what CI runs. NullAway only looks at @NullMarked packages, of which there is one. -->
+    <profile>
+      <id>errorprone</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <fork>true</fork>
+              <showWarnings>true</showWarnings>
+              <failOnWarning>true</failOnWarning>
+              <compilerArgs>
+                <arg>-XDcompilePolicy=simple</arg>
+                <arg>--should-stop=ifError=FLOW</arg>
+                <arg>-XDaddTypeAnnotationsToSymbol=true</arg>
+                <arg>-Xplugin:ErrorProne -XepAllErrorsAsWarnings -Xep:NullAway:ERROR -XepOpt:NullAway:OnlyNullMarked=true -XepOpt:NullAway:JSpecifyMode=true</arg>
+                <!-- Error Prone reads javac internals, which JDK 16+ only opens on request -->
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+              </compilerArgs>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>com.google.errorprone</groupId>
+                  <artifactId>error_prone_core</artifactId>
+                  <version>${errorprone.version}</version>
+                </path>
+                <path>
+                  <groupId>com.uber.nullaway</groupId>
+                  <artifactId>nullaway</artifactId>
+                  <version>${nullaway.version}</version>
+                </path>
+              </annotationProcessorPaths>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

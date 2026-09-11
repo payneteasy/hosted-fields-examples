@@ -1,0 +1,2 @@
+# Maven's build output. .env and *.pem are ignored repository wide, see the root .gitignore.
+target/
