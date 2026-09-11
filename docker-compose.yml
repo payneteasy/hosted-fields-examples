@@ -76,6 +76,7 @@ services:
       - ./rust-axum-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/rust.conf:ro
       - ./dotnet-aspnetcore-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/dotnet.conf:ro
       - ./nextjs/deploy/nginx.conf:/etc/nginx/conf.d/apps/nextjs.conf:ro
+      - ./go-react/deploy/nginx.conf:/etc/nginx/conf.d/apps/go-react.conf:ro
 
       # Three of those snippets carry an optional block serving the four client assets straight
       # off disk. The directories are committed copies of shared/, so mounting them adds no
@@ -90,6 +91,10 @@ services:
   go:
     <<: *app
     build: ./go-js
+
+  go-react:
+    <<: *app
+    build: ./go-react
 
   nodejs-express-js:
     <<: *app

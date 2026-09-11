@@ -87,6 +87,9 @@ services:
   go:
     <<: *e2e-app
 
+  go-react:
+    <<: *e2e-app
+
   nodejs-express-js:
     <<: *e2e-app
 
