@@ -34,6 +34,10 @@ jobs:
       - run: go vet ./...
       # The OAuth base string and the 3DS callback checksum: the two pieces that fail silently
       - run: go test ./...
+      # The runner's own platform and no other. Every commit and every pull request builds linux
+      # x86-64 here; the four platforms a release carries are cross-built in release.yml, which
+      # runs on a tag. Compiling them on every push would cost minutes to catch nothing: the code
+      # is the same, and a target-specific break shows up on the release build.
       - run: go build ./...
 
   node:
@@ -176,6 +180,8 @@ jobs:
       # The OAuth base string and the 3DS callback checksum, on the same vectors as the other
       # jobs. No credentials: the settings are parsed in main(), which no test calls.
       - run: cargo test
+      # The host target only, for the same reason as the Go job above: release.yml builds the
+      # other three, on a tag, each on the runner native to it
       - run: cargo build --release
 
   nextjs:
