@@ -30,8 +30,9 @@ Two things are verified rather than waved through, so that a green run means som
 
 - **the OAuth 1.0a RSA-SHA256 signature on every server call**, checked against the generated
   public key. This is the only place the bytes actually on the wire are checked — the unit tests
-  in `go-js`, `nodejs-express-js`, `php-js`, `python-flask-js` and `ruby-sinatra-js` each check
-  their own signer against a fixed base string, and `nextjs` has no unit test at all;
+  in `go-js`, `nodejs-express-js`, `php-js`, `python-flask-js`, `ruby-sinatra-js` and
+  `java-springboot-js` each check their own signer against a fixed base string, and `nextjs` has
+  no unit test at all;
 - **the `control` checksum on the 3DS return**, because the emulator signs what every example
   verifies. A disagreement shows up as a `403`.
 
@@ -41,7 +42,8 @@ Two things are verified rather than waved through, so that a green run means som
 npm install
 npm run browser          # once: downloads Chromium
 npm test                 # every application
-npm run test:go          # or test:express / test:php / test:python / test:ruby / test:nextjs
+npm run test:go          # or test:express / test:php / test:python / test:ruby /
+                         #    test:java / test:nextjs
 npm run test:ui          # the Playwright UI, for watching a flow
 ```
 
@@ -85,9 +87,14 @@ behaviour.
   app. It also needs a **Ruby 3.1 or newer**: macOS's `/usr/bin/ruby` is 2.6 and bundler refuses
   the `Gemfile`, so `apps.ts` locates one the way it locates Go and puts it first on `PATH`. Set
   `RUBY_BIN` if yours is not at `~/opt/ruby/bin/ruby` or on `PATH`.
+- **The Spring Boot example is packaged and then run from its jar.** `./mvnw` is the Maven
+  wrapper, so no Maven has to be installed — it downloads one on the first run, along with Spring
+  Boot, which is what the long `startTimeout` on that entry is for. The jar lands in the app's own
+  git-ignored `target/`, and `apps.ts` puts the JDK it found first on `PATH` so `mvnw` and
+  `java` agree on one. Set `JAVA_HOME` if yours is neither there nor under `~/.sdkman`.
 - **The RSA key is generated, never committed** — into `.tmp/`, once, and reused.
-- **Ports 4010-4016** are used so your own servers on 3000-3005 can keep running. If a run ends
-  strangely, `lsof -ti tcp:4010,4011,4012,4013,4014,4015,4016 | xargs kill`.
+- **Ports 4010-4017** are used so your own servers on 3000-3006 can keep running. If a run ends
+  strangely, `lsof -ti tcp:4010,4011,4012,4013,4014,4015,4016,4017 | xargs kill`.
 - `E2E_VERIFY_OAUTH=0` turns off signature verification, which is worth doing only to find out
   whether a failure is the application's or this harness's.
 
