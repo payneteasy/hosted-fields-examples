@@ -184,6 +184,36 @@ jobs:
       # other three, on a tag, each on the runner native to it
       - run: cargo build --release
 
+  dotnet:
+    name: dotnet-aspnetcore-js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dotnet-aspnetcore-js
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          # The app references no package at all, so there is no lock file of its own to key a
+          # cache on — the same reason the Go job above turns caching off
+
+      # `dotnet format` is the counterpart of gofmt and cargo fmt. There is no solution file, so
+      # each project is named — which is also what keeps `dotnet run` working in the app directory.
+      - run: dotnet format HostedFields.csproj --verify-no-changes
+      - run: dotnet format tests/HostedFields.Tests.csproj --verify-no-changes
+
+      # TreatWarningsAsErrors with the SDK's analysers is the counterpart of `go vet` and clippy
+      - run: dotnet build HostedFields.csproj -c Release
+
+      # The OAuth base string and the 3DS callback checksum, on the same vectors as the other
+      # jobs. No credentials: the settings are loaded in Main, which no test calls.
+      - run: dotnet test tests/HostedFields.Tests.csproj -c Release
+
+      # One framework-dependent artefact, platform-neutral like the Java jar: release.yml packages
+      # this very command's output
+      - run: dotnet publish HostedFields.csproj -c Release
+
   nextjs:
     name: nextjs
     runs-on: ubuntu-latest

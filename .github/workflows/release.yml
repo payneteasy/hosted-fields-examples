@@ -95,6 +95,10 @@ jobs:
           cache: maven
           cache-dependency-path: java-springboot-js/pom.xml
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
       # views/ and public/ are compiled in with go:embed, so a release is one binary per platform
       # and nothing else has to travel with it. deploy/ ships only with linux: a systemd unit and
       # an nginx snippet mean nothing on a laptop, where these builds are for trying the example.
@@ -204,6 +208,21 @@ jobs:
           tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
           rm -rf "../dist-release/${dir:?}"
 
+      # The pages and the client scripts are embedded resources, so like the jar above this
+      # artefact is self-contained. The publish is framework-dependent and carries no apphost, so
+      # the one archive runs on every platform a .NET 10 runtime does.
+      - name: dotnet-aspnetcore-js
+        working-directory: dotnet-aspnetcore-js
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="hosted-fields-examples-dotnet"
+          dir="${name}_${tag}"
+          dotnet publish HostedFields.csproj -c Release -o "../dist-release/$dir"
+          cp .env.example README.md "../dist-release/$dir/"
+          cp -r deploy "../dist-release/$dir/"
+          tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
+          rm -rf "../dist-release/${dir:?}"
+
       # `output: 'standalone'` gives one server.js plus a minimal node_modules, so this
       # artefact needs nothing but Node 20 either. BASE_PATH is baked in at build time, so the
       # release carries the default prefix — rebuild from source to mount it elsewhere.
@@ -271,6 +290,9 @@ jobs:
               `hosted-fields-examples-rust_windows_amd64.zip` — the same binary for trying the
               example on a laptop. No `deploy/`: the systemd unit and the nginx snippet are for
               a Linux server.
+            - `hosted-fields-examples-dotnet.tar.gz` — one assembly with the pages inside it,
+              plus `deploy/`. Needs the .NET 10 runtime and nothing else, on any platform it
+              runs on: `dotnet hosted-fields-example-dotnet.dll`.
             - `hosted-fields-examples-nextjs.tar.gz` — the standalone Next.js server with
               `public/`, `.next/` and `deploy/`. Needs Node 20+, `node server.js`. The URL
               prefix is compiled in: rebuild from source to change it.
