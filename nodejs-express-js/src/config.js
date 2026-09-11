@@ -11,6 +11,9 @@ export const PUBLIC_URL = process.env.PUBLIC_URL ?? `http://localhost:${PORT}`;
 
 export const API_URL = process.env.API_URL;
 export const SDK_URL = process.env.SDK_URL;
+// Origin of SDK_URL, scheme and host only: the Content-Security-Policy has to name the host the
+// SDK bundle and the card iframes come from, and nothing else.
+export const SDK_ORIGIN = URL.canParse(SDK_URL ?? '') ? new URL(SDK_URL).origin : '';
 
 export const ENDPOINT_ID = process.env.ENDPOINT_ID;
 export const MERCHANT_LOGIN = process.env.MERCHANT_LOGIN;

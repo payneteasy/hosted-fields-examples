@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -14,11 +15,14 @@ type config struct {
 	Port string
 	// Interface to listen on. The default is loopback: the example speaks plain HTTP and trusts
 	// X-Forwarded-For, both of which are only safe with a proxy in front. Set 0.0.0.0 knowingly.
-	ListenAddr    string
-	BasePath      string // URL prefix everything is mounted under
-	PublicURL     string // origin the payer's browser sees, no path
-	APIURL        string
-	SDKURL        string
+	ListenAddr string
+	BasePath   string // URL prefix everything is mounted under
+	PublicURL  string // origin the payer's browser sees, no path
+	APIURL     string
+	SDKURL     string
+	// Origin of SDKURL, scheme and host only: the Content-Security-Policy has to name the host
+	// the SDK bundle and the card iframes come from, and nothing else.
+	SDKOrigin     string
 	EndpointID    string
 	MerchantLogin string
 	// Shared secret the gateway signs its callbacks with. Not the RSA key.
@@ -55,6 +59,10 @@ func loadConfig(envFile string) (config, error) {
 		OrderCurrency:   env("ORDER_CURRENCY", "USD"),
 	}
 	c.PublicURL = env("PUBLIC_URL", "http://localhost:"+c.Port)
+
+	if parsed, err := url.Parse(c.SDKURL); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		c.SDKOrigin = parsed.Scheme + "://" + parsed.Host
+	}
 
 	for name, value := range map[string]string{
 		"API_URL": c.APIURL, "SDK_URL": c.SDKURL,

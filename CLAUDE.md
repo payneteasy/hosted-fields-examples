@@ -108,6 +108,13 @@ In `go-js/` and `nodejs-express-js/`:
 - No dependencies and no bundler for the browser half.
 - `public/` is ES5: `var`, `function`, no arrow functions, no template literals.
 
+- **No inline `<script>` and no inline `style=` in a view.** Every page ships a
+  Content-Security-Policy with no `'unsafe-inline'`, and a nonce cannot go in the markup because
+  nothing in `views/` is templated. That is why the result page's script is
+  `public/result.js`. The policy names the `SDK_URL` origin in `script-src` **and** in
+  `frame-src` — the card fields are iframes from that host — and is built at runtime, so it is a
+  header and not a violation of the no-templating rule. `nextjs/` is the exception again: Next
+  emits its own inline scripts, so its middleware mints a nonce per request instead.
 In `nextjs/` the bundler is the point of the example, but the dependencies are still only
 Next, React and the two linters — nothing for the integration itself.
 
