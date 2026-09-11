@@ -80,6 +80,29 @@ jobs:
       # Node jobs. No credentials: the settings are validated per request, not at import.
       - run: php tests/run.php
 
+  python:
+    name: python-flask-js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python-flask-js
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: python-flask-js/requirements.txt
+
+      - run: pip install -r requirements.txt
+      # There is no build step, so compiling every module is the whole static check — the
+      # counterpart of gofmt, `node --check` and `php -l`
+      - run: python -m compileall -q .
+
+      # The OAuth base string and the 3DS callback checksum, on the same vectors as the other
+      # jobs. No credentials: the tests stub the environment settings.py validates at import.
+      - run: python -m unittest discover -s tests -t .
+
   nextjs:
     name: nextjs
     runs-on: ubuntu-latest

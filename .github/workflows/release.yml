@@ -89,6 +89,21 @@ jobs:
           tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
           rm -rf "../dist-release/${dir:?}"
 
+      # Nothing to build, but this is the one artefact that is not self-contained: Python has
+      # no single-file story, so the target needs `pip install -r requirements.txt` in a venv.
+      - name: python-flask-js
+        working-directory: python-flask-js
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="hosted-fields-examples-python"
+          dir="${name}_${tag}"
+          mkdir -p "../dist-release/$dir"
+          cp app.py settings.py oauth.py control.py paynet.py requirements.txt \
+             .env.example README.md "../dist-release/$dir/"
+          cp -r tests public views deploy "../dist-release/$dir/"
+          tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
+          rm -rf "../dist-release/${dir:?}"
+
       # `output: 'standalone'` gives one server.js plus a minimal node_modules, so this
       # artefact needs nothing but Node 20 either. BASE_PATH is baked in at build time, so the
       # release carries the default prefix — rebuild from source to mount it elsewhere.
@@ -133,6 +148,9 @@ jobs:
             - `hosted-fields-examples-php.tar.gz` — the sources with `public/`, `views/` and
               `deploy/`. Needs PHP 8.4 with curl and openssl, no Composer: `php -S` for a look,
               PHP-FPM behind nginx for anything else.
+            - `hosted-fields-examples-python.tar.gz` — the sources with `tests/`, `public/`,
+              `views/` and `deploy/`. Needs Python 3.12+ and, unlike the others, a
+              `pip install -r requirements.txt` into a venv on the target; then gunicorn.
             - `hosted-fields-examples-nextjs.tar.gz` — the standalone Next.js server with
               `public/`, `.next/` and `deploy/`. Needs Node 20+, `node server.js`. The URL
               prefix is compiled in: rebuild from source to change it.
