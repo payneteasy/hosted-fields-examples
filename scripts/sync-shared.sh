@@ -20,6 +20,7 @@ PLAIN_JS_APPS=(
   python-flask-js
   ruby-sinatra-js
   java-springboot-js
+  rust-axum-js
 )
 
 # React: the scripts and the views are components there, so only the stylesheet is shared.
