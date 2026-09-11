@@ -20,8 +20,10 @@ export const PRIVATE_KEY = process.env.PRIVATE_KEY_PATH ? readFileSync(process.e
 export const ORDER_AMOUNT = process.env.ORDER_AMOUNT ?? '1.00';
 export const ORDER_CURRENCY = process.env.ORDER_CURRENCY ?? 'EUR';
 
-// The payer returns here after a 3DS challenge
-export const REDIRECT_URL = `${PUBLIC_URL}${BASE_PATH}/result`;
+// Where the gateway sends the payer back after a 3DS challenge. It POSTs there, so this is
+// /result/callback and not the /result page the callback then redirects to. Built from
+// PUBLIC_URL, because behind a proxy the listen address is not what the payer's browser sees.
+export const REDIRECT_URL = `${PUBLIC_URL}${BASE_PATH}/result/callback`;
 
 for (const [name, value] of Object.entries({ API_URL, SDK_URL, ENDPOINT_ID, MERCHANT_LOGIN, MERCHANT_CONTROL })) {
   if (!value) throw new Error(`${name} is not set, see .env.example`);
