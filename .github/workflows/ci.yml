@@ -184,6 +184,16 @@ jobs:
       # other three, on a tag, each on the runner native to it
       - run: cargo build --release
 
+      # And once more on the version Cargo.toml declares, because every step above runs on
+      # whatever `stable` is today. A language feature stabilised after 1.85 passes all of them
+      # and then fails for anyone who took "Rust 1.85 or newer" at its word — which is exactly
+      # what a let chain in src/main.rs did until it was found by building the example in a
+      # pinned container rather than on a runner.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.85'
+      - run: cargo +1.85 build --release
+
   dotnet:
     name: dotnet-aspnetcore-js
     runs-on: ubuntu-latest
