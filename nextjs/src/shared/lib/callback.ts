@@ -30,8 +30,13 @@ export function validCallback(form: URLSearchParams): boolean {
 }
 
 /**
- * The payer's address, which the platform uses for fraud screening. Behind nginx it only
- * arrives in X-Forwarded-For, so the proxy must set it.
+ * The payer's address, which the platform uses for fraud screening. Behind nginx it only arrives
+ * in X-Forwarded-For, so the proxy must set it — and the header is taken on trust, which is one
+ * of the reasons the app binds to loopback by default. Exposed straight to the internet it would
+ * let any caller pick the address the gateway screens.
+ *
+ * The Web Request API gives a route handler no socket peer, so an absent header leaves nothing
+ * better than the loopback address to send.
  */
 export function clientIp(headers: Headers): string {
   const forwarded = headers.get('x-forwarded-for');

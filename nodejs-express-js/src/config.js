@@ -3,6 +3,9 @@
 import { readFileSync } from 'node:fs';
 
 export const PORT = process.env.PORT ?? 3000;
+// Interface to listen on. The default is loopback: the example speaks plain HTTP and trusts
+// X-Forwarded-For, both of which are only safe with a proxy in front. Set 0.0.0.0 knowingly.
+export const LISTEN_ADDR = process.env.LISTEN_ADDR ?? '127.0.0.1';
 export const BASE_PATH = process.env.BASE_PATH ?? '';
 export const PUBLIC_URL = process.env.PUBLIC_URL ?? `http://localhost:${PORT}`;
 
