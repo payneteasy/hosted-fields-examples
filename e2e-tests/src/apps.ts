@@ -3,6 +3,11 @@
 // Every setting goes in as a process environment variable. Every example lets the real
 // environment win over its `.env` file, so a developer's own `.env` is neither read for these
 // values nor written to — the harness leaves the working tree alone.
+//
+// `command`, `cwd`, `env` and `startTimeout` describe the native mode, where Playwright starts
+// each app itself. In the docker mode the containers are started instead and only `name`,
+// `service` and `basePath` are read; `onRequestOnly` is ignored there, because it exists for a
+// toolchain that might be missing and Docker supplies all of them.
 
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -14,10 +19,12 @@ import {
   HOST,
   MERCHANT_CONTROL,
   MERCHANT_LOGIN,
+  NGINX_ORIGIN,
   ORDER_AMOUNT,
   ORDER_CURRENCY,
   REPO_ROOT,
   SDK_URL,
+  TARGET,
   TMP_DIR,
 } from './settings.ts';
 
@@ -46,6 +53,9 @@ const RUBY_GEMS = join(TMP_DIR, 'ruby-sinatra-gems');
 export interface AppUnderTest {
   /** Playwright project name, and the directory the app lives in. */
   name: string;
+  /** Its service in docker-compose.yml. The docker mode starts only the ones a run asks for,
+   *  rather than building all nine to exercise one. */
+  service: string;
   port: number;
   /** Left at each app's own default: overriding it would mean rebuilding nextjs. */
   basePath: string;
@@ -179,6 +189,7 @@ function gatewayEnv(port: number): Record<string, string> {
 export const APPS: AppUnderTest[] = [
   {
     name: 'go-js',
+    service: 'go',
     port: 4011,
     basePath: '/hosted-fields-examples-go',
     cwd: join(REPO_ROOT, 'go-js'),
@@ -193,6 +204,7 @@ export const APPS: AppUnderTest[] = [
   },
   {
     name: 'nodejs-express-js',
+    service: 'nodejs-express-js',
     port: 4012,
     basePath: '/hosted-fields-examples-nodejs-express-js',
     cwd: join(REPO_ROOT, 'nodejs-express-js'),
@@ -203,6 +215,7 @@ export const APPS: AppUnderTest[] = [
   },
   {
     name: 'php-js',
+    service: 'php',
     port: 4014,
     basePath: '/hosted-fields-examples-php',
     cwd: join(REPO_ROOT, 'php-js'),
@@ -219,6 +232,7 @@ export const APPS: AppUnderTest[] = [
   },
   {
     name: 'python-flask-js',
+    service: 'python',
     port: 4015,
     basePath: '/hosted-fields-examples-python',
     cwd: join(REPO_ROOT, 'python-flask-js'),
@@ -238,6 +252,7 @@ export const APPS: AppUnderTest[] = [
   },
   {
     name: 'ruby-sinatra-js',
+    service: 'ruby',
     port: 4016,
     basePath: '/hosted-fields-examples-ruby',
     cwd: join(REPO_ROOT, 'ruby-sinatra-js'),
@@ -262,6 +277,7 @@ export const APPS: AppUnderTest[] = [
   },
   {
     name: 'java-springboot-js',
+    service: 'java',
     port: 4017,
     basePath: '/hosted-fields-examples-java',
     cwd: join(REPO_ROOT, 'java-springboot-js'),
@@ -283,6 +299,7 @@ export const APPS: AppUnderTest[] = [
   },
   {
     name: 'rust-axum-js',
+    service: 'rust',
     port: 4018,
     basePath: '/hosted-fields-examples-rust',
     cwd: join(REPO_ROOT, 'rust-axum-js'),
@@ -301,6 +318,7 @@ export const APPS: AppUnderTest[] = [
   },
   {
     name: 'dotnet-aspnetcore-js',
+    service: 'dotnet',
     port: 4019,
     basePath: '/hosted-fields-examples-dotnet',
     cwd: join(REPO_ROOT, 'dotnet-aspnetcore-js'),
@@ -328,6 +346,7 @@ export const APPS: AppUnderTest[] = [
   },
   {
     name: 'nextjs',
+    service: 'nextjs',
     port: 4013,
     basePath: '/hosted-fields-examples-nextjs',
     cwd: join(REPO_ROOT, 'nextjs'),
@@ -340,8 +359,46 @@ export const APPS: AppUnderTest[] = [
   },
 ];
 
+/**
+ * The apps a run named with --project, empty when it named none. Playwright filters the projects
+ * itself; this is for the two decisions taken before it does — which servers or containers to
+ * start, and which apps the readiness probe waits for.
+ */
+export function selectedApps(): AppUnderTest[] {
+  const names: string[] = [];
+  const argv = process.argv;
+  for (let index = 0; index < argv.length; index++) {
+    const arg = argv[index];
+    if (arg === '--project' || arg === '-p') {
+      const value = argv[index + 1];
+      if (value) names.push(value);
+    } else if (arg?.startsWith('--project=')) {
+      names.push(arg.slice('--project='.length));
+    }
+  }
+  return APPS.filter((app) => names.includes(app.name));
+}
+
+/**
+ * The apps a run actually starts: the ones it named, or the default set. Natively that leaves out
+ * anything marked onRequestOnly; in the docker mode nothing is left out, because that flag is
+ * about a toolchain that might be missing and Docker supplies all of them.
+ */
+export function startedApps(): AppUnderTest[] {
+  const named = selectedApps();
+  if (named.length > 0) {
+    return named;
+  }
+  return TARGET === 'docker' ? APPS : APPS.filter((app) => !app.onRequestOnly);
+}
+
+/**
+ * Where this app answers. Natively that is its own port; behind compose all nine share the one
+ * nginx origin and are told apart by their BASE_PATH — which is the whole reason the specs go
+ * through this function and appUrl() rather than naming a port.
+ */
 export function appOrigin(app: AppUnderTest): string {
-  return `http://${HOST}:${app.port}`;
+  return TARGET === 'docker' ? NGINX_ORIGIN : `http://${HOST}:${app.port}`;
 }
 
 export function appUrl(app: AppUnderTest, path: string): string {

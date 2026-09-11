@@ -1,0 +1,117 @@
+# The e2e suite's view of the stack. Read on top of docker-compose.yml, never on its own:
+#
+#     docker compose -p hosted-fields-examples-e2e \
+#       -f docker-compose.yml -f docker-compose.e2e.yml up --build
+#
+# e2e-tests/ normally starts the nine apps itself, which needs nine toolchains installed. This
+# file is the other way to run exactly the same specs: against the containers, so the only thing
+# that has to be installed is Docker. `cd e2e-tests && npm run test:docker`.
+#
+# It reuses the nine services and the nine mounted deploy/nginx.conf from the base file rather
+# than restating them — that is the whole point of an override here — and changes four things.
+#
+# 1. A different project name (-p above), so this stack and the demo one can be up at once
+#    without either tearing the other down.
+#
+# 2. Different ports. nginx publishes 4020 rather than 8080, and also publishes the emulator's
+#    4010 — the emulator joins the same network namespace, so nginx's container is where its
+#    port is. The published port and the internal one are the same number in both cases, and
+#    that is load-bearing: the emulator does not read the request's Host, it rebuilds the signed
+#    URL from its own EMULATOR_ORIGIN, so `http://127.0.0.1:4010` has to mean the emulator
+#    whether it is said on your machine or inside the stack. Same for 4020 and PUBLIC_URL.
+#
+#    The emulator stays on its own port rather than behind the same nginx on purpose: the card
+#    fields are iframes from SDK_URL, and a cross-origin boundary is what the suite checks.
+#
+# 3. Different settings. The gateway is the emulator, the credentials are the fake ones, and the
+#    key is the pair the emulator verifies against — not the demo's. They go in through
+#    `environment:`, and the base file's `env_file` is dropped besides, so a root .env with
+#    somebody's real credentials cannot reach a test run at all.
+#
+#    Every value below is spelled in e2e-tests/src/settings.ts too — the credentials because that
+#    is what the emulator asserts on, the two ports because that is where the browser looks.
+#    Change one and change both; a mismatch fails on the first payment.
+#
+# 4. No .env and no private_key.pem at the repository root are needed. The base file's env_file
+#    is optional, and this one supplies the key from e2e-tests/.tmp/.
+
+# The nine identical blocks, spelled once — as x-app does in the base file.
+x-e2e-app: &e2e-app
+  # The root .env is the demo's — real credentials, a real gateway. !override replaces the base
+  # file's list rather than adding to it, so nothing from that file reaches a test run at all.
+  env_file: !override []
+  environment:
+    # nginx, not any app's own port: it is the origin the 3DS return comes back to.
+    PUBLIC_URL: http://127.0.0.1:4020
+    # The emulator, on the one origin it also advertises. API_URL must not end in a slash.
+    API_URL: http://127.0.0.1:4010
+    SDK_URL: http://127.0.0.1:4010/sdk.js
+    ENDPOINT_ID: "1234567"
+    MERCHANT_LOGIN: test-merchant
+    MERCHANT_CONTROL: test-merchant-control
+    PRIVATE_KEY_PATH: /run/secrets/private_key.pem
+    # Deliberately not the 1.00 default: a page that hard-coded the amount would still pass.
+    ORDER_AMOUNT: "12.34"
+    ORDER_CURRENCY: USD
+  # The generated pair, in place of the demo's key
+  volumes: !override
+    - ./e2e-tests/.tmp/private_key.pem:/run/secrets/private_key.pem:ro
+
+services:
+  nginx:
+    ports: !override
+      - "4020:4020"
+      - "4010:4010"
+    environment:
+      NGINX_PORT: "4020"
+
+  # The fake gateway: the SDK bundle, the tokenizer, the Sale, the ACS challenge page and the
+  # order book. Plain node:22 with no build and no npm ci, because it imports nothing but node
+  # builtins — and it runs the .ts sources directly, which Node strips types from since 22.18.
+  emulator:
+    image: node:22
+    working_dir: /app
+    command: node src/emulator/main.ts
+    volumes:
+      # What server.ts reads per request (src/sdk/*) and what oauth-verify.ts reads per request
+      # (.tmp/public_key.pem). PROJECT_ROOT is derived from this file's own path, so /app is it.
+      - ./e2e-tests/src:/app/src:ro
+      - ./e2e-tests/.tmp:/app/.tmp:ro
+    environment:
+      # A published port reaches only a server bound to 0.0.0.0. What the emulator *advertises*
+      # is unchanged — 127.0.0.1:4010, the string the apps sign and it recomputes.
+      E2E_EMULATOR_HOST: 0.0.0.0
+    network_mode: "service:nginx"
+    depends_on: [nginx]
+
+  go:
+    <<: *e2e-app
+
+  nodejs-express-js:
+    <<: *e2e-app
+
+  php:
+    <<: *e2e-app
+    # The socket php-js/deploy/nginx.conf's fastcgi_pass names, shared with the nginx container.
+    # Spelled out because !override above replaced the base file's list rather than adding to it.
+    volumes: !override
+      - ./e2e-tests/.tmp/private_key.pem:/run/secrets/private_key.pem:ro
+      - php-socket:/run/php
+
+  python:
+    <<: *e2e-app
+
+  ruby:
+    <<: *e2e-app
+
+  java:
+    <<: *e2e-app
+
+  rust:
+    <<: *e2e-app
+
+  dotnet:
+    <<: *e2e-app
+
+  nextjs:
+    <<: *e2e-app
