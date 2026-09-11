@@ -17,6 +17,7 @@ PLAIN_JS_APPS=(
   go-js
   nodejs-express-js
   php-js
+  python-flask-js
 )
 
 # React: the scripts and the views are components there, so only the stylesheet is shared.

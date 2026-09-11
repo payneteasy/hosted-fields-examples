@@ -1,0 +1,10 @@
+# Flask is the point of the example, and cryptography is the one thing the integration cannot do
+# without: Python has no RSA in the standard library. The gateway calls go through
+# urllib.request, the way go-js uses net/http and nodejs-express-js built-in fetch, so nothing
+# here is installed for the HTTP.
+Flask>=3.1
+cryptography>=44
+
+# Deploy only. `python app.py` is the development server; gunicorn is what the systemd unit in
+# deploy/ runs. Nothing imports it.
+gunicorn>=23
