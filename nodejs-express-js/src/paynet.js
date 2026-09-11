@@ -20,6 +20,9 @@ async function post(url, params) {
   const body = params ? new URLSearchParams(params).toString() : '';
   const response = await fetch(url, {
     method: 'POST',
+    // The Go example's http.Client has the same 30s, and Next passes the same AbortSignal:
+    // without one a wedged gateway holds the request, and the payer's page, indefinitely.
+    signal: AbortSignal.timeout(30_000),
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       // Ask for JSON instead of the default x-www-form-urlencoded reply, which arrives as
