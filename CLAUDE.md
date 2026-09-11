@@ -9,7 +9,7 @@ They exist to be read, so clarity beats cleverness everywhere in this repository
 into every app:
 
 ```
-shared/public/styles.css  status.js  checkout.js
+shared/public/styles.css  status.js  checkout.js  result.js
 shared/views/checkout.html  result.html
 ```
 

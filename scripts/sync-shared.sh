@@ -12,7 +12,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# The plain-JS frontend: stylesheet, scripts and views, all five files.
+# The plain-JS frontend: stylesheet, scripts and views, all six files.
 PLAIN_JS_APPS=(
   go-js
   nodejs-express-js
@@ -26,9 +26,9 @@ STYLESHEET_ONLY_APPS=(
 
 for app in "${PLAIN_JS_APPS[@]}"; do
   install -d "$app/public" "$app/views"
-  cp shared/public/styles.css shared/public/status.js shared/public/checkout.js "$app/public/"
+  cp shared/public/styles.css shared/public/status.js shared/public/checkout.js shared/public/result.js "$app/public/"
   cp shared/views/checkout.html shared/views/result.html "$app/views/"
-  echo "$app: public/{styles.css,status.js,checkout.js} views/{checkout.html,result.html}"
+  echo "$app: public/{styles.css,status.js,checkout.js,result.js} views/{checkout.html,result.html}"
 done
 
 for app in "${STYLESHEET_ONLY_APPS[@]}"; do
