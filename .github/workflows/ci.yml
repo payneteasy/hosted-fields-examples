@@ -56,6 +56,30 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  php:
+    name: php-js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: php-js
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, openssl, json
+          coverage: none
+          tools: none
+
+      # There is no build step and no dependencies to install, so `php -l` over every file is
+      # the whole static check — the counterpart of gofmt and `node --check`.
+      - name: php -l
+        run: php -l *.php tests/*.php
+
+      # The OAuth base string and the 3DS callback checksum, on the same vectors as the Go and
+      # Node jobs. No credentials: the settings are validated per request, not at import.
+      - run: php tests/run.php
+
   nextjs:
     name: nextjs
     runs-on: ubuntu-latest
