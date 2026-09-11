@@ -39,6 +39,10 @@ export function createSale(sale: {
   const { orderAmount, orderCurrency } = serverConfig();
 
   return postJSON('/api/v4/sale/', {
+    // 3DS 2.0 browser data, required by /api/v4/sale. It comes from the page, so it goes first
+    // and every server-owned field below overwrites it: POST /pay already filtered it to the
+    // documented keys, and this ordering is what keeps that a belt and not a single thread.
+    ...sale.browser,
     client_orderid: sale.clientOrderId,
     order_desc: 'Hosted Fields example order',
     amount: orderAmount,
@@ -56,8 +60,6 @@ export function createSale(sale: {
     email: sale.customer.email,
     ipaddress: sale.ipaddress,
     redirect_url: redirectUrl(),
-    // 3DS 2.0 browser data, required by /api/v4/sale
-    ...sale.browser,
   });
 }
 

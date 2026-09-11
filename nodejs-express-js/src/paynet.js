@@ -49,6 +49,10 @@ export async function getEphemeralTicket() {
 // credit_card_number, expire_month, expire_year and cvv2 must not be sent.
 export async function createSale({ hostedFieldsToken, clientOrderId, customer, ipaddress, browser }) {
   return postJson(`${API_URL}/api/v4/sale/${ENDPOINT_ID}`, {
+    // 3DS 2.0 browser data, required by /api/v4/sale. It comes from the page, so it goes first
+    // and every server-owned field below overwrites it — the handler already filtered it to the
+    // documented keys, and this ordering is what keeps that a belt and not a single thread.
+    ...browser,
     client_orderid: clientOrderId,
     order_desc: 'Hosted Fields example order',
     amount: ORDER_AMOUNT,
@@ -68,8 +72,6 @@ export async function createSale({ hostedFieldsToken, clientOrderId, customer, i
     email: customer?.email ?? '',
     ipaddress,
     redirect_url: REDIRECT_URL,
-    // 3DS 2.0 browser data, required by /api/v4/sale
-    ...browser,
   });
 }
 

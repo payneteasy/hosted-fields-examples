@@ -105,12 +105,7 @@ func handlePay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	browser := url.Values{}
-	for key, value := range payment.Browser {
-		browser.Set(key, value)
-	}
-	browser.Set("customer_browser_accept_header", header(r, "Accept", "*/*"))
-	browser.Set("customer_browser_user_agent", header(r, "User-Agent", ""))
+	browser := browserParams(payment.Browser, r)
 
 	clientOrderID := "hf-" + strconv.FormatInt(time.Now().UnixMilli(), 10)
 	sale, err := createSale(payment.HostedFieldsToken, clientOrderID, clientIP(r), browser, payment.Customer)
@@ -121,6 +116,35 @@ func handlePay(w http.ResponseWriter, r *http.Request) {
 
 	sale["clientOrderId"] = clientOrderID
 	writeJSON(w, http.StatusOK, sale)
+}
+
+// browserFields are the 3DS 2.0 values the page is allowed to supply. Everything else the Sale
+// needs — amount, currency, redirect_url, hosted_fields_token, client_orderid — belongs to the
+// server, so the request body is filtered here rather than merged: a body naming "amount" would
+// otherwise have chosen what the payer is charged.
+var browserFields = []string{
+	"customer_browser_info",
+	"customer_browser_javascript_enabled",
+	"customer_browser_java_enabled",
+	"customer_browser_accept_language",
+	"customer_browser_color_depth",
+	"customer_browser_screen_width",
+	"customer_browser_screen_height",
+	"customer_browser_time_zone",
+}
+
+// browserParams keeps the allowed fields and drops everything else. The last two come from the
+// request headers, never from the body, so the caller cannot spoof them.
+func browserParams(src map[string]string, r *http.Request) url.Values {
+	browser := url.Values{}
+	for _, name := range browserFields {
+		if value, ok := src[name]; ok {
+			browser.Set(name, value)
+		}
+	}
+	browser.Set("customer_browser_accept_header", header(r, "Accept", "*/*"))
+	browser.Set("customer_browser_user_agent", header(r, "User-Agent", ""))
+	return browser
 }
 
 // Step 4. The page polls this until the order reaches a final status.
