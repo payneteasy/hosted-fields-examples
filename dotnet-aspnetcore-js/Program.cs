@@ -101,6 +101,9 @@ app.MapGet(basePath + "/{file}", PublicFile);
 
 log.LogInformation("listening on {Url}", settings.LocalUrl);
 app.Run();
+// Run returns when the host stops. The exit code is explicit because the settings check above
+// returns 1, which makes this entry point an int-returning one.
+return 0;
 
 Task Checkout(HttpContext context) => ServeView(context, "checkout.html");
 
