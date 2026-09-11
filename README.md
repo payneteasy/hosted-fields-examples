@@ -123,7 +123,27 @@ rather than falling back to a host baked in at some point and forgotten. Go, Exp
 Sinatra, Spring Boot, axum and ASP.NET Core check at startup; Next checks on the first request, so
 that a build needs no credentials, and PHP on every request, because it has no startup to check at.
 
-## Run
+## Run all nine at once
+
+That "behind one nginx" is not a figure of speech, and `docker-compose.yml` is it: nine images,
+one nginx, no toolchain to install.
+
+```bash
+cp .env.example .env                    # the gateway URLs and your credentials
+cp your_key.pem private_key.pem         # PKCS#8 — the JDK reads nothing else
+docker compose up --build               # http://localhost:8080/
+```
+
+The front page lists all nine. Each is routed by **its own [`deploy/nginx.conf`](go-js/deploy/nginx.conf)**,
+mounted unmodified — so this is also what checks that the file in every release archive is
+correct, which nothing else does.
+
+It is a demo and not a deployment: plain HTTP on a local port. The first build is slow — it
+compiles Rust, packages a Spring Boot jar and runs `next build`. Set `HTTP_PORT` in `.env` if
+something already has 8080, and restart the stack rather than one service — every app shares the
+nginx container's network namespace, which is what lets the shipped snippets be used unchanged.
+
+## Run one on its own
 
 They all mount everything under a URL prefix, so they can sit behind one nginx at once, and they
 all listen on `127.0.0.1` by default — they speak plain HTTP and trust `X-Forwarded-For`, so a
@@ -212,6 +232,8 @@ Each app has its own README with the details — settings, the 3DS return, deplo
 ```
 shared/                 the browser half, once
 scripts/sync-shared.sh  copies it into every app
+docker-compose.yml      all nine at once, behind one nginx
+docker/nginx/           the server block the nine shipped snippets are included into
 go-js/                  Go + plain JS, assets embedded in the binary
 nodejs-express-js/      Node.js + Express + plain JS
 php-js/                 PHP + plain JS, no Composer

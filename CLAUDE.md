@@ -325,6 +325,40 @@ Five things about it are load-bearing:
 
 Running it rebuilds `nextjs/.next`, because `basePath` is baked in at build time.
 
+## All nine at once, in `docker-compose.yml`
+
+`docker compose up --build` builds nine images and runs them behind one nginx on `:8080`. It
+exists for two reasons, and the second is the one to protect:
+
+- no toolchain to install, which is what `e2e-tests/` still needs nine of;
+- **it is the only thing that ever executes the nine `deploy/nginx.conf`.** Those files ship in
+  the release archives and the READMEs tell people to install them, and until this they were
+  documentation with nothing to check them.
+
+That second reason is what fixes the shape of the file. Every app service joins the nginx
+container's network namespace (`network_mode: "service:nginx"`), so the snippets' own
+`proxy_pass http://127.0.0.1:300x` is true inside it and they are mounted **unmodified**. Service
+names and `LISTEN_ADDR=0.0.0.0` would have been the ordinary answer and would have meant nine
+second copies, drifting silently — the one thing `shared/` exists to prevent. Keep the mounts
+read-only and keep them pointing at `*/deploy/nginx.conf`.
+
+Three consequences worth knowing before editing it: a service in a shared namespace may not
+declare `ports`, `networks` or `hostname`; **`docker compose restart` does not work** — the nine
+hold a handle on the namespace nginx owns, so restarting leaves some of them without a network and
+`up -d --force-recreate` is the way; and the root `.env` must carry **no `PORT`, `LISTEN_ADDR` or
+`BASE_PATH`** — all nine read that one file, and every example already defaults to its own port
+and prefix.
+
+`php-js` is the only app whose shipped deploy config cannot be mounted as it is: its pool sets
+`clear_env = yes` and names every setting as an `env[]` line, which is right for a system FPM and
+blind to compose's environment. Its `Dockerfile` writes a compose pool instead, and says in a
+comment exactly which two lines differ and why. `nextjs` is the only one needing a build argument,
+because `next build` bakes `basePath` in.
+
+**This is what a ninth language now costs**, on top of the one line in `scripts/sync-shared.sh`:
+a `Dockerfile`, a `.dockerignore`, a service in `docker-compose.yml` and a mount line for its
+snippet. Images are not built in CI.
+
 ## Documentation
 
 Link to `doc.payneteasy.com`, never to internal or staging hosts. The integration reference is
