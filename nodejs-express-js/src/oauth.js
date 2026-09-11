@@ -5,13 +5,27 @@ import { createSign, randomBytes } from 'node:crypto';
 import { MERCHANT_LOGIN, PRIVATE_KEY } from './config.js';
 
 // RFC 3986 percent encoding: encodeURIComponent leaves ! ' ( ) * unescaped
-function encode(value) {
+export function encode(value) {
   return encodeURIComponent(value).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
 // Accepts a PEM with real newlines or with escaped \n, and tolerates indentation
 function normalizeKey(pem) {
   return pem.replace(/\\n/g, '\n').split('\n').map((line) => line.trim()).join('\n');
+}
+
+/**
+ * The signature base string: METHOD&url&sorted-parameters, each part percent-encoded. It carries
+ * no secret, which is what makes it testable on its own — and it is where a signature usually
+ * goes wrong, because every part has to be encoded to RFC 3986 rather than to the looser rules
+ * the standard library applies.
+ */
+export function baseString(method, url, params) {
+  const normalized = Object.keys(params)
+    .sort()
+    .map((key) => `${encode(key)}=${encode(params[key])}`)
+    .join('&');
+  return `${method.toUpperCase()}&${encode(url)}&${encode(normalized)}`;
 }
 
 /**
@@ -27,15 +41,9 @@ export function buildAuthHeader(method, url, bodyParams = {}) {
     oauth_version: '1.0',
   };
 
-  // Signature base string: METHOD&url&sorted-parameters, each part percent-encoded
-  const params = { ...bodyParams, ...oauthParams };
-  const normalized = Object.keys(params)
-    .sort()
-    .map((key) => `${encode(key)}=${encode(params[key])}`)
-    .join('&');
-  const baseString = `${method.toUpperCase()}&${encode(url)}&${encode(normalized)}`;
+  const base = baseString(method, url, { ...bodyParams, ...oauthParams });
 
-  const signature = createSign('RSA-SHA256').update(baseString).sign(normalizeKey(PRIVATE_KEY), 'base64');
+  const signature = createSign('RSA-SHA256').update(base).sign(normalizeKey(PRIVATE_KEY), 'base64');
 
   // Header values are not encoded by the transport, so encode them here
   const header = { ...oauthParams, oauth_signature: signature };

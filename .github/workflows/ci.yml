@@ -32,6 +32,8 @@ jobs:
           fi
 
       - run: go vet ./...
+      # The OAuth base string and the 3DS callback checksum: the two pieces that fail silently
+      - run: go test ./...
       - run: go build ./...
 
   node:
@@ -50,6 +52,8 @@ jobs:
 
       - run: npm ci
       - run: node --check src/*.js public/*.js
+      # The OAuth base string and the 3DS callback checksum, on the same vectors as the Go job
+      - run: npm test
       - run: npm run build
 
   nextjs:
