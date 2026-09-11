@@ -26,7 +26,10 @@ export interface CheckoutConfig {
   basePath: string;
   sdkUrl: string;
   endpointId: string;
+  /** Empty when the ticket call failed. The page then says so and the button stays dead. */
   ephemeralTicket: string;
+  /** Why there is no ticket. For the log only — never shown to the payer. */
+  error?: string;
   amount: string;
   currency: string;
 }
@@ -37,7 +40,7 @@ export interface CheckoutConfig {
    `retry` leaves the button live, the terminal ones do not, because the
    session is gone and only a reload can help.                               */
 
-type ErrorKind = 'retry' | 'rejected' | 'spent' | 'network';
+type ErrorKind = 'retry' | 'rejected' | 'spent' | 'network' | 'unavailable';
 
 const ERROR_COPY: Record<ErrorKind, string> = {
   retry:
@@ -46,13 +49,17 @@ const ERROR_COPY: Record<ErrorKind, string> = {
     'That card number was not accepted. Check the digits, then reload the page to start a new payment.',
   spent: 'This payment session has already been used. Reload the page to try again.',
   network: 'We could not reach the payment gateway. Check your connection and try again.',
+  unavailable: 'This page could not be prepared for a payment. Reload it to try again.',
 };
 
-/** Errors that burn the ephemeralTicket: the button cannot come back, because a retry would
- *  need a ticket this page no longer has. */
+/** Errors the button cannot come back from. Two of them burn the ephemeralTicket, so a retry
+ *  would need one this page no longer has; `unavailable` means the page never got one at all.
+ *  This table and ERROR_COPY above are the plain-JS ones ported — shared/public/checkout.js is
+ *  the other copy, and the payer must read the same words in both. */
 const TERMINAL_ERRORS: Partial<Record<ErrorKind, string>> = {
   rejected: 'Reload to try again',
   spent: 'Payment session closed',
+  unavailable: 'Reload to try again',
 };
 
 export function CheckoutForm({ config }: { config: CheckoutConfig }) {
@@ -103,6 +110,17 @@ export function CheckoutForm({ config }: { config: CheckoutConfig }) {
     }
     started.current = true;
 
+    /* The ticket is the one thing the server generates for this page. When the gateway call
+       behind it failed there is nothing to tokenize with, so say so and do not load an SDK that
+       could not be used anyway. Terminal either way — only a reload can produce a new ticket. */
+    if (!config.ephemeralTicket) {
+      // The reason is for the log, the way error.message is: what the payer is shown says what
+      // they can do about it, and "fetch failed" does not.
+      console.error(`[HostedFields] no ephemeralTicket: ${config.error || 'reason unknown'}`);
+      showFormError('unavailable');
+      return;
+    }
+
     const style = fieldStyle();
 
     window.onHostedFieldsReady = (HostedFields) => {
@@ -124,7 +142,10 @@ export function CheckoutForm({ config }: { config: CheckoutConfig }) {
     const script = document.createElement('script');
     script.src = config.sdkUrl;
     script.async = true;
-    script.onerror = () => showFormError('network', 'Failed to load the Hosted Fields SDK.');
+    script.onerror = () => {
+      console.error(`[HostedFields] the SDK bundle failed to load from ${config.sdkUrl}`);
+      showFormError('unavailable');
+    };
     document.head.appendChild(script);
 
     // Step 3. Only the token reaches our server, never the card data.
