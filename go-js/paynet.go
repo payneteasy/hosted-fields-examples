@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -29,8 +30,13 @@ func getEphemeralTicket() (string, error) {
 	}
 	ticket, ok := decoded["ephemeralTicket"].(string)
 	if !ok || strings.TrimSpace(ticket) == "" {
-		// A rejected request comes back as 4xx with a JSON body carrying the reason.
-		return "", fmt.Errorf("no ephemeralTicket: %v", decoded)
+		// A rejected request comes back as 4xx with a JSON body carrying the reason. Only that
+		// one field is quoted: this reason travels on into config.js, where the browser can
+		// read it, and the rest of the reply is the gateway's business and not the payer's.
+		if message, found := decoded["error-message"].(string); found && message != "" {
+			return "", fmt.Errorf("no ephemeralTicket: %s", message)
+		}
+		return "", errors.New("no ephemeralTicket in the response")
 	}
 	return strings.TrimSpace(ticket), nil
 }
@@ -99,7 +105,8 @@ func postJSON(command string, params url.Values) (response, error) {
 	}
 	var decoded response
 	if err := json.Unmarshal(body, &decoded); err != nil {
-		return nil, fmt.Errorf("%d: %s", status, oneLine(body))
+		// The body is not quoted: it reaches the page as {error}. The log above has the detail.
+		return nil, fmt.Errorf("gateway request failed with %d", status)
 	}
 	return decoded, nil
 }
@@ -131,8 +138,29 @@ func post(command string, params url.Values) ([]byte, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	log.Printf("[paynet] POST %s -> %d %s", endpoint, result.StatusCode, oneLine(body))
+	log.Printf("[paynet] POST %s -> %d%s", endpoint, result.StatusCode, logReason(body))
 	return body, result.StatusCode, nil
+}
+
+// logReason is what goes in the log beside the status code. Not the body: a status reply carries
+// the card's last four digits and the holder's name, and the ticket reply carries the ticket.
+// The gateway puts everything a log needs to be useful into these two fields anyway.
+func logReason(body []byte) string {
+	var decoded struct {
+		OrderID string `json:"paynet-order-id"`
+		Message string `json:"error-message"`
+	}
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return " (reply is not JSON)"
+	}
+	reason := ""
+	if decoded.OrderID != "" {
+		reason += " order " + decoded.OrderID
+	}
+	if decoded.Message != "" {
+		reason += " " + oneLine([]byte(decoded.Message))
+	}
+	return reason
 }
 
 func oneLine(body []byte) string {

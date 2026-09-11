@@ -19,8 +19,15 @@ export async function getEphemeralTicket(): Promise<string> {
   const decoded = await postJSON('/api/v4/tokenize/create-ephemeral-ticket/', {});
   const ticket = decoded.ephemeralTicket;
   if (typeof ticket !== 'string' || ticket.trim() === '') {
-    // A rejected request comes back as 4xx with a JSON body carrying the reason.
-    throw new Error(`no ephemeralTicket: ${JSON.stringify(decoded)}`);
+    // A rejected request comes back as 4xx with a JSON body carrying the reason. Only that one
+    // field is quoted: this reason travels on to the page as a prop, where the browser can read
+    // it, and the rest of the reply is the gateway's business and not the payer's.
+    const message = decoded['error-message'];
+    throw new Error(
+      typeof message === 'string' && message !== ''
+        ? `no ephemeralTicket: ${message}`
+        : 'no ephemeralTicket in the response',
+    );
   }
   return ticket.trim();
 }
@@ -101,13 +108,31 @@ async function postJSON(command: string, params: Record<string, string>): Promis
   });
 
   const text = await response.text();
-  console.log(`[paynet] POST ${endpoint} -> ${response.status} ${oneLine(text)}`);
+  console.log(`[paynet] POST ${endpoint} -> ${response.status}${logReason(text)}`);
 
   try {
     return JSON.parse(text) as GatewayResponse;
   } catch {
-    throw new Error(`${response.status}: ${oneLine(text)}`);
+    // The body is not quoted: it reaches the page as {error}. The log above has the detail.
+    throw new Error(`gateway request failed with ${response.status}`);
   }
+}
+
+/**
+ * What goes in the log beside the status code. Not the body: a status reply carries the card's
+ * last four digits and the holder's name, and the ticket reply carries the ticket. The gateway
+ * puts everything a log needs to be useful into these two fields anyway.
+ */
+function logReason(text: string): string {
+  let decoded: GatewayResponse;
+  try {
+    decoded = JSON.parse(text) as GatewayResponse;
+  } catch {
+    return ' (reply is not JSON)';
+  }
+  const orderId = decoded['paynet-order-id'] ? ` order ${String(decoded['paynet-order-id'])}` : '';
+  const message = decoded['error-message'] ? ` ${oneLine(String(decoded['error-message']))}` : '';
+  return orderId + message;
 }
 
 function oneLine(body: string): string {

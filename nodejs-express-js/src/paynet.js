@@ -12,7 +12,8 @@ async function postJson(url, params) {
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error(`${status}: ${oneLine(text)}`);
+    // The body is not quoted: it reaches the page as {error}. The log below has the detail.
+    throw new Error(`gateway request failed with ${status}`);
   }
 }
 
@@ -33,8 +34,23 @@ async function post(url, params) {
     body,
   });
   const text = await response.text();
-  console.log('[paynet] POST %s -> %d %s', url, response.status, oneLine(text));
+  console.log('[paynet] POST %s -> %d%s', url, response.status, logReason(text));
   return { text, status: response.status };
+}
+
+// What goes in the log beside the status code. Not the body: a status reply carries the card's
+// last four digits and the holder's name, and the ticket reply carries the ticket. The gateway
+// puts everything a log needs to be useful into these two fields anyway.
+function logReason(text) {
+  let decoded;
+  try {
+    decoded = JSON.parse(text);
+  } catch {
+    return ' (reply is not JSON)';
+  }
+  const orderId = decoded['paynet-order-id'] ? ` order ${decoded['paynet-order-id']}` : '';
+  const message = decoded['error-message'] ? ` ${oneLine(String(decoded['error-message']))}` : '';
+  return orderId + message;
 }
 
 function oneLine(text) {
