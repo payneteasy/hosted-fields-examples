@@ -39,9 +39,13 @@ not an FSD layer.
 - **`BASE_PATH` is build-time** (it becomes `basePath`), and **`PORT` is not read from `.env`**
   (Next picks the port first). Both are documented in `README.md` and `.env.example`; do not
   "fix" them by moving the values around.
-- **`public/styles.css` is one of the shared files.** It is referenced with a `<link>` rather
-  than imported, and Biome is configured to skip it, so that nothing can reformat it. Never
-  edit it here — edit `go-js/public/styles.css` and copy it across.
+- **`public/styles.css` is a copy of `shared/public/styles.css`.** It is referenced with a
+  `<link>` rather than imported, and Biome is configured to skip it, so that nothing can
+  reformat it. Never edit it here — edit `shared/`, run `scripts/sync-shared.sh`.
+- **The 3DS return carries signed parameters in the query, not a cookie.** `result/callback`
+  verifies the gateway's `control` and forwards the same four values; `result/page.tsx` checks
+  them again. A React page cannot answer `403` without the experimental `forbidden()`, so a
+  failed check renders the empty page — which is the part that matters.
 - **Nothing server-side may reach a client component.** `src/shared/lib/index.ts` is the
   client-safe barrel; `oauth.ts`, `paynet.ts` and `callback.ts` are imported straight from
   `src/app/**` and must stay out of it.

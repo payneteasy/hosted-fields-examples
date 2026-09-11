@@ -1,9 +1,15 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { serverConfig } from '@/shared/config';
 
+/** The parameters the gateway signs its callback with, in the order the page wants them back. */
+export const SIGNED_CALLBACK_FIELDS = ['status', 'orderid', 'merchant_order', 'control'] as const;
+
 /**
  * The checksum the gateway signs its callbacks with:
  * sha1(status + orderid + merchant_order + merchant_control).
+ *
+ * Takes the POSTed form or the query string the callback redirected to — the same values
+ * travel on to the result page, and are checked again there.
  * https://doc.payneteasy.com/integration/API_commands/merchant_callback_parameters.html
  */
 export function validCallback(form: URLSearchParams): boolean {

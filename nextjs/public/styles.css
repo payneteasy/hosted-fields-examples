@@ -1,5 +1,10 @@
 /* ==========================================================================
    Hosted Fields checkout — payer-facing stylesheet
+
+   SHARED FILE. The source of truth is shared/public/styles.css; the copy in
+   every app is written by scripts/sync-shared.sh. Edit it there, run the
+   script, commit both.
+
    Shipped as written: no build step, no dependencies, no external fonts,
    no images, no url() anywhere.
 

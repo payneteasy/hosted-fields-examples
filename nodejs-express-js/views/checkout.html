@@ -7,11 +7,8 @@
   <title>Payment &middot; Northwind Supply</title>
   <link rel="stylesheet" href="styles.css">
 
-  <!-- Config injection. THE ONLY LINE THAT DIFFERS BETWEEN THE TWO APPS.
-       go-js:             <script>window.CONFIG = {{ . }};</script>
-       nodejs-express-js: <script>window.CONFIG = __CONFIG__;</script>
-       Keep the rest of this file byte-identical in both copies. -->
-  <script>window.CONFIG = __CONFIG__;</script>
+  <!-- SHARED FILE. The source of truth is shared/views/checkout.html; the copy in every app is
+       written by scripts/sync-shared.sh. Edit it there, run the script, commit both. -->
 </head>
 <body>
 
@@ -142,6 +139,10 @@
   <p class="pay-foot">Payments processed by Payneteasy</p>
 </main>
 
+<!-- The server generates this one: window.CONFIG, carrying a fresh single-use
+     ephemeralTicket. Nothing else in this file is generated, which is why the file can be
+     identical whatever the server is written in. It must load first: the two below read it. -->
+<script src="config.js"></script>
 <script src="status.js"></script>
 <script src="checkout.js"></script>
 </body>

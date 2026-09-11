@@ -5,28 +5,55 @@ They exist to be read, so clarity beats cleverness everywhere in this repository
 
 ## The rule that breaks most often
 
-`public/styles.css` is shared by **all three** apps and must stay byte-for-byte identical.
-
-Four more files are shared by the two plain-JS apps, `go-js/` and `nodejs-express-js/`:
-
-```
-public/status.js  public/checkout.js  views/checkout.html  views/result.html
-```
-
-Exactly one line may differ in the views, the config injection:
+`shared/` is the source of truth for the browser half, and `scripts/sync-shared.sh` copies it
+into every app:
 
 ```
-go-js:              <script>window.CONFIG = {{ . }};</script>
-nodejs-express-js:  <script>window.CONFIG = __CONFIG__;</script>
+shared/public/styles.css  status.js  checkout.js
+shared/views/checkout.html  result.html
 ```
 
-So a frontend change is never finished in one app. Edit one copy, copy it across, swap that one
-line back, then diff to confirm nothing else moved. CI fails the push otherwise.
+The copies stay committed, so every app directory still runs on its own with no pre-step. A
+frontend change is therefore: **edit `shared/`, run `scripts/sync-shared.sh`, commit both.**
+Never edit a copy — the script overwrites it, and CI runs the script and then
+`git diff --exit-code`, so forgetting cannot reach main.
 
-`nextjs/` cannot share the scripts or the views — it is React, and they are ported to TSX — but
-it serves the same `public/styles.css`, which is what keeps the design from drifting. A change
-to the stylesheet has to reach all three copies; a change to the markup or the behaviour has to
-be made twice, once in the plain-JS pair and once in the components.
+`nextjs/` takes only `styles.css`: its scripts and views are React components. That one file is
+what keeps the three looking identical.
+
+There are no exceptions and no per-app lines. Nothing in `views/` is templated — see below.
+
+## The server contract
+
+Every app serves the same routes under `BASE_PATH`, and adding a language means implementing
+exactly these and nothing else:
+
+| Route | What |
+| --- | --- |
+| `GET /` | `views/checkout.html`, byte for byte as it is on disk |
+| `GET /config.js` | `window.CONFIG = {basePath, sdkUrl, endpointId, amount, currency, ephemeralTicket}` |
+| `GET /result-config.js` | the same, without `sdkUrl` and without a ticket |
+| `POST /pay` | Sale; JSON in, the gateway's JSON plus `clientOrderId` out, `502 {error}` on failure |
+| `GET /status` | order status as JSON, `Cache-Control: no-store` |
+| `POST /result/callback` | verify `control`, `403` on a mismatch, else `303` to `/result` with the signed query |
+| `GET /result` | verify the query when `orderid` is present, then `views/result.html` |
+
+Three things about it are load-bearing:
+
+- **`config.js` is the only generated thing anywhere.** That is what lets the views be
+  identical across languages, so never reintroduce templating into an HTML file.
+- **`config.js` is `no-store`** — the ticket in it is single-use — and it must stay valid
+  JavaScript even when the gateway call behind it failed: emit `error` in place of
+  `ephemeralTicket`, and `checkout.js` tells the payer and kills the button.
+- **The 3DS return is signed twice over the same checksum.** The gateway POSTs
+  `status`/`orderid`/`merchant_order`/`control` to `/result/callback`; the redirect forwards
+  those four verbatim, and `GET /result` checks them again with the same function. The browser
+  carries them but cannot forge them, so a hand-edited URL gets a `403` instead of a page that
+  polls somebody else's order.
+
+`nextjs/` is the one exception, and only to the first two rows: a React page gets its config as
+props from the server component, so it has no `config.js` and no `result-config.js`. Everything
+below those rows it implements exactly as written.
 
 ## English only
 
@@ -92,12 +119,13 @@ only.
 ## Checks before a commit
 
 ```bash
+./scripts/sync-shared.sh && git diff --exit-code   # every copy matches shared/
 cd go-js             && gofmt -l . && go vet ./... && go build ./...
 cd nodejs-express-js && npm ci && npm run build
 cd nextjs            && yarn install && yarn lint && yarn build
 ```
 
-Then confirm the shared files still match, the way CI does — see `.github/workflows/ci.yml`.
+The first line is what CI runs — see `.github/workflows/ci.yml`.
 
 ## Documentation
 

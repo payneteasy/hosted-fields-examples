@@ -12,12 +12,14 @@ the third, whether the page is a static file or a React tree.
 | **Node.js** | Node 20+, express only | [`nodejs-express-js/`](nodejs-express-js/) | [`src/server.js`](nodejs-express-js/src/server.js) routes · [`src/paynet.js`](nodejs-express-js/src/paynet.js) the three gateway calls · [`src/oauth.js`](nodejs-express-js/src/oauth.js) request signing |
 | **Next.js** | Node 20+, React 19, TypeScript | [`nextjs/`](nextjs/) | [`src/app/`](nextjs/src/app/) pages and route handlers · [`src/shared/lib/paynet.ts`](nextjs/src/shared/lib/paynet.ts) the three gateway calls · [`src/shared/ui/checkout-form.tsx`](nextjs/src/shared/ui/checkout-form.tsx) the page |
 
-Between the Go and the Node.js examples the browser half is **byte-for-byte identical** —
-[`public/checkout.js`](go-js/public/checkout.js) sets up the fields and tokenizes,
-[`public/status.js`](go-js/public/status.js) polls the order,
-[`views/checkout.html`](go-js/views/checkout.html) is the page. That is the point of having two:
-everything interesting about Hosted Fields happens in the page, and the server behind it is
-interchangeable. Pick whichever language you work in and ignore the other.
+The browser half lives once, in [`shared/`](shared/) —
+[`checkout.js`](shared/public/checkout.js) sets up the fields and tokenizes,
+[`status.js`](shared/public/status.js) polls the order,
+[`checkout.html`](shared/views/checkout.html) is the page — and
+[`scripts/sync-shared.sh`](scripts/sync-shared.sh) copies it into every app, byte for byte.
+That is the point of having more than one: everything interesting about Hosted Fields happens
+in the page, and the server behind it is interchangeable. Pick whichever language you work in
+and ignore the others.
 
 The Next.js example answers the other question — what this looks like when the page is React.
 It cannot share those files, so they are ported to components, but it serves the very same
@@ -67,20 +69,20 @@ three boxes holding card data are not.
 
 ## The flow
 
-Identical in both examples. `{prefix}` is the URL prefix each app is mounted under.
+Identical in all three examples. `{prefix}` is the URL prefix each app is mounted under.
 
 | # | Where | What happens |
 | - | ----- | ------------ |
-| 1 | `GET {prefix}/` | the server obtains a single-use `ephemeralTicket` and embeds it in the page |
+| 1 | `GET {prefix}/` and `{prefix}/config.js` | the page, then the config it needs — including a single-use `ephemeralTicket`, fresh on every load |
 | 2 | browser | the SDK creates the `pan` / `exp` / `cvv` iframes; `sdk.tokenize(ticket)` exchanges the card for a `hostedFieldsToken` |
 | 3 | `POST {prefix}/pay` | the server sends a Sale with `hosted_fields_token` in place of the card parameters |
 | 4 | `GET {prefix}/status` | the page polls the order status every four seconds until a final status |
-| 5 | `GET`/`POST {prefix}/result` | where the payer lands after a 3DS challenge; the gateway returns them with a POST whose `control` checksum is verified before the page renders |
+| 5 | `POST {prefix}/result/callback` | where the gateway returns the payer after a 3DS challenge; its `control` checksum is verified, then a `303` to the page with the same signed parameters |
+| 6 | `GET {prefix}/result` | the return page; the checksum is verified again before anything is served, so an edited URL gets a `403` |
 
-In the Next.js example step 5 is split in two, because an App Router page cannot serve a POST:
-the gateway posts to `{prefix}/result/callback`, which verifies the checksum and redirects to
-`{prefix}/result`. The verified order travels in an `httpOnly` cookie, so it still never passes
-through the browser's URL.
+The page itself is never generated. The server hands it `window.CONFIG` as a separate
+`{prefix}/config.js` — a fresh single-use ticket per page load — and that is the only thing any
+of these servers generates. It is what lets the same HTML file serve from every one of them.
 
 The card data goes from the iframes straight to the gateway. Your server only ever sees a token.
 
@@ -139,30 +141,27 @@ Each app has its own README with the details — settings, the 3DS return, deplo
 ## Layout
 
 ```
+shared/                 the browser half, once
+scripts/sync-shared.sh  copies it into every app
 go-js/                  Go + plain JS, assets embedded in the binary
 nodejs-express-js/      Node.js + Express + plain JS
 nextjs/                 Next.js + React + TypeScript
 ```
 
-`public/styles.css` is **shared by all three and must stay byte-for-byte identical**. Four more
-files are shared by the two plain-JS apps:
+The copies stay committed, so every app directory runs on its own with no pre-step and the
+release archives carry nothing extra. Editing one directly is the mistake to avoid:
 
-```
-public/status.js  public/checkout.js  views/checkout.html  views/result.html
-```
-
-In the views exactly one line may differ — the config injection, which uses each server's
-template syntax:
-
-```
-go-js:              <script>window.CONFIG = {{ . }};</script>
-nodejs-express-js:  <script>window.CONFIG = __CONFIG__;</script>
+```bash
+# edit shared/, then
+./scripts/sync-shared.sh
 ```
 
-Edit one copy, copy it across, swap that line back. CI checks this on every push, because the
-whole premise of the repository is that the browser half does not depend on the server. The
-Next.js copy of the markup is components rather than a file, so only the stylesheet is diffed
-against it — which is enough to keep the three from looking different.
+CI runs that script and then `git diff --exit-code`, so an unsynced copy fails the push. There
+is no per-file list anywhere and no line that is allowed to differ — the config injection left
+the HTML and became `config.js`, which is why a fourth or a seventh language costs nothing here.
+
+`nextjs/` takes only `styles.css`: its scripts and views are React components. That one shared
+file is what keeps the three from looking different.
 
 ## A note on the payer-facing language
 

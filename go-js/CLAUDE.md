@@ -13,7 +13,7 @@ point of the example is that the integration needs nothing but the stdlib.
 | `config.go` | environment variables plus a small `.env` reader, since Go has no `--env-file` |
 | `oauth.go` | OAuth 1.0a RSA-SHA256 signing |
 | `paynet.go` | the three gateway calls: ephemeral ticket, sale, status |
-| `main.go` | routes, all mounted under `BASE_PATH` |
+| `main.go` | routes under `BASE_PATH`, and the generated `config.js` |
 
 `views/` and `public/` are compiled in with `//go:embed`, so the artefact is one static binary
 with no files beside it. Change a template and you have to rebuild — there is nothing to edit on
@@ -31,8 +31,11 @@ a server.
   `Accept: application/vnd.pay+json`. A rejected request comes back as 4xx **with a JSON body**
   carrying `error-message`, so `postJSON` decodes whatever the status and only treats a non-JSON
   reply as a failed call. The ephemeral ticket is the one reply that stays plain text.
-- **`html/template` serialises the config map to JSON itself** in the `window.CONFIG = {{ . }}`
-  line. Do not marshal it by hand.
+- **Nothing in `views/` is templated.** Both pages are served straight out of the embedded FS,
+  and the only generated thing is `config.js` (`writeConfigJS` in `main.go`). Reintroducing a
+  template would break the promise that the same HTML serves from every example.
+- **`views/` and `public/` are copies of `shared/`.** Edit `shared/`, run
+  `scripts/sync-shared.sh`. CI fails a copy that has drifted.
 
 ## Checks
 

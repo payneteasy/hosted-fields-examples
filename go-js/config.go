@@ -30,7 +30,7 @@ var cfg config
 
 // redirectURL is where the payer lands after a 3DS challenge. It is built from
 // PUBLIC_URL, not from the listen address, which behind a proxy is not the same.
-func (c config) redirectURL() string { return c.PublicURL + c.BasePath + "/result" }
+func (c config) redirectURL() string { return c.PublicURL + c.BasePath + "/result/callback" }
 
 func loadConfig(envFile string) (config, error) {
 	if err := loadEnvFile(envFile); err != nil {
