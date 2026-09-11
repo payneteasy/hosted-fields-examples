@@ -150,8 +150,6 @@ export function CheckoutForm({ config }: { config: CheckoutConfig }) {
 
     // Step 3. Only the token reaches our server, never the card data.
     async function sendTokenToServer(hostedFieldsToken: string) {
-      console.log('[HostedFields] token received');
-
       try {
         const response = await fetch(`${config.basePath}/pay`, {
           method: 'POST',

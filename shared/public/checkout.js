@@ -444,8 +444,6 @@ window.onHostedFieldsReady = function (HostedFields) {
 
 // Step 3. Only the token reaches our server, never the card data.
 function sendTokenToServer(hostedFieldsToken) {
-  console.log('[HostedFields] token received');
-
   fetch(CONFIG.basePath + '/pay', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
