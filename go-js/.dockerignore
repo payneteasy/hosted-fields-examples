@@ -1,0 +1,10 @@
+# What must never reach an image. .env, *.pem and *.key are git-ignored repository wide —
+# an image is one more place a key does not belong.
+.env
+*.pem
+*.key
+
+# Local build output, and the personal deploy script
+/hosted-fields-example-go
+/hosted-fields-examples-go
+/deploy-dev-*.sh

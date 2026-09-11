@@ -1,0 +1,9 @@
+# What must never reach an image. .env, *.pem and *.key are git-ignored repository wide —
+# an image is one more place a key does not belong.
+.env
+*.pem
+*.key
+
+# Installed and built in the image, not copied into it
+node_modules/
+dist/

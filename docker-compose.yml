@@ -1,0 +1,124 @@
+# Every example, built and run at once behind one nginx on http://localhost:8080/
+#
+#     cp .env.example .env        # the gateway URLs and your credentials
+#     cp <your key> private_key.pem
+#     docker compose up --build
+#
+# Two things about the shape of this file are deliberate.
+#
+# 1. Every app service joins the nginx container's network namespace. That is what lets each
+#    app's own deploy/nginx.conf — the file it ships and its README tells you to install — be
+#    mounted here unchanged: those say `proxy_pass http://127.0.0.1:300x`, and inside one shared
+#    namespace that is exactly where the app is. The alternative, service names and
+#    LISTEN_ADDR=0.0.0.0, would mean nine second copies of those files, drifting quietly.
+#
+#    It also means the apps keep their shipped LISTEN_ADDR=127.0.0.1 default, that nginx needs no
+#    DNS and so starts before the apps do, and that ports 3000-3008 stay free on your machine.
+#
+#    The price, and it is worth knowing before you hit it: a service in a shared namespace may
+#    not declare `ports`, `networks` or `hostname`, and the nine hold a handle on the namespace
+#    nginx owns — so `docker compose restart` leaves some of them without a network. Restart the
+#    stack, never one service:
+#
+#        docker compose up -d --force-recreate       # or: down, then up -d
+#
+# 2. One .env and one private_key.pem for all nine. PUBLIC_URL is the nginx origin rather than
+#    any app's own port, because it is what builds the 3DS return URL the payer's browser is sent
+#    to — each app appends its own BASE_PATH to it.
+#
+# This is a demo, not a deployment. It speaks plain HTTP and publishes nginx on a local port.
+
+# What every app service shares. Spelled once: nine copies of the same five lines is nine places
+# for one of them to quietly differ.
+x-app: &app
+  env_file: .env
+  volumes: [./private_key.pem:/run/secrets/private_key.pem:ro]
+  # See (1) above — this is what lets the shipped deploy/nginx.conf files be mounted unchanged
+  network_mode: "service:nginx"
+  depends_on: [nginx]
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      # HTTP_PORT in .env if something already has 8080. PUBLIC_URL must name the same port:
+      # it is the origin the payer's browser is sent back to after a 3DS challenge.
+      - "${HTTP_PORT:-8080}:8080"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/index.html:/usr/share/nginx/html/index.html:ro
+
+      # The nine shipped snippets, unmodified. A diff here is a real bug in a release archive.
+      - ./go-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/go.conf:ro
+      - ./nodejs-express-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/nodejs-express-js.conf:ro
+      - ./php-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/php.conf:ro
+      - ./python-flask-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/python.conf:ro
+      - ./ruby-sinatra-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/ruby.conf:ro
+      - ./java-springboot-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/java.conf:ro
+      - ./rust-axum-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/rust.conf:ro
+      - ./dotnet-aspnetcore-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/dotnet.conf:ro
+      - ./nextjs/deploy/nginx.conf:/etc/nginx/conf.d/apps/nextjs.conf:ro
+
+      # Three of those snippets carry an optional block serving the four client assets straight
+      # off disk. The directories are committed copies of shared/, so mounting them adds no
+      # second source of truth — and it means that block is exercised rather than assumed.
+      - ./nodejs-express-js/public:/opt/hosted-fields-examples-nodejs-express-js/public:ro
+      - ./python-flask-js/public:/opt/hosted-fields-examples-python/public:ro
+      - ./ruby-sinatra-js/public:/opt/hosted-fields-examples-ruby/public:ro
+
+      # The PHP snippet talks to php-fpm over a unix socket rather than a port
+      - php-socket:/run/php
+
+  go:
+    <<: *app
+    build: ./go-js
+
+  nodejs-express-js:
+    <<: *app
+    build: ./nodejs-express-js
+
+  php:
+    <<: *app
+    build: ./php-js
+    # The socket deploy/nginx.conf's fastcgi_pass names, shared with the nginx container
+    volumes:
+      - ./private_key.pem:/run/secrets/private_key.pem:ro
+      - php-socket:/run/php
+
+  python:
+    <<: *app
+    build: ./python-flask-js
+
+  ruby:
+    <<: *app
+    build: ./ruby-sinatra-js
+
+  java:
+    <<: *app
+    build: ./java-springboot-js
+
+  rust:
+    <<: *app
+    build: ./rust-axum-js
+
+  dotnet:
+    <<: *app
+    build: ./dotnet-aspnetcore-js
+
+  nextjs:
+    <<: *app
+    build:
+      context: ./nextjs
+      # basePath is baked in by `next build`, so it has to be known here as well as at runtime.
+      # Change it and you have to rebuild this one image; the other eight read BASE_PATH at
+      # startup.
+      args:
+        BASE_PATH: /hosted-fields-examples-nextjs
+    environment:
+      # Next reads the interface under this name, not LISTEN_ADDR
+      HOSTNAME: 127.0.0.1
+      PORT: "3002"
+      BASE_PATH: /hosted-fields-examples-nextjs
+
+volumes:
+  php-socket:
