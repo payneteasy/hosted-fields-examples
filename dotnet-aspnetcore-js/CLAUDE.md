@@ -35,6 +35,11 @@ bare, and the test project is named explicitly wherever it is needed.
   `{prefix}/`, which is the redirect Go's mux, Tomcat and nginx all send by themselves. It is
   registered before anything else, so it short-circuits whatever routing has already selected. The
   payment page itself is registered at the bare prefix and reached at the trailing-slash form.
+- **`MapGet` maps GET and nothing else**, so a `HEAD` would be answered `405` — this example
+  alone, since Go's `ServeMux`, Express and the rest all serve `HEAD` from their `GET` route.
+  Every GET route here goes through the one-line `Get` helper in `Program.cs`, which is
+  `MapMethods(…, ["GET", "HEAD"], …)`. Kestrel drops the body of a HEAD response itself, so the
+  handlers know nothing about it.
 - **No `UseStaticFiles`, no `wwwroot`, no static web assets.** `public/` goes out through the
   four-name allowlist in `Program.cs` and nowhere else. Left to itself the framework would serve
   the client scripts a second way, at the root rather than under `BASE_PATH` and with caching
