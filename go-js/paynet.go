@@ -4,6 +4,7 @@ package main
 // https://doc.payneteasy.com/integration/api_use_cases/hosted_fields.html
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -145,22 +146,37 @@ func post(command string, params url.Values) ([]byte, int, error) {
 // logReason is what goes in the log beside the status code. Not the body: a status reply carries
 // the card's last four digits and the holder's name, and the ticket reply carries the ticket.
 // The gateway puts everything a log needs to be useful into these two fields anyway.
+//
+// It decodes into the same loose map the callers use rather than into a typed struct. The gateway
+// answers paynet-order-id as a number in a sale reply and as a string elsewhere, and a struct
+// field would turn that difference into "reply is not JSON" on a perfectly good answer.
 func logReason(body []byte) string {
-	var decoded struct {
-		OrderID string `json:"paynet-order-id"`
-		Message string `json:"error-message"`
-	}
-	if err := json.Unmarshal(body, &decoded); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	// An order id is a number here, and a float64 would print a long one in exponent form
+	decoder.UseNumber()
+
+	var decoded response
+	if err := decoder.Decode(&decoded); err != nil {
 		return " (reply is not JSON)"
 	}
+
 	reason := ""
-	if decoded.OrderID != "" {
-		reason += " order " + decoded.OrderID
+	if id := logField(decoded, "paynet-order-id"); id != "" {
+		reason += " order " + id
 	}
-	if decoded.Message != "" {
-		reason += " " + oneLine([]byte(decoded.Message))
+	if message := logField(decoded, "error-message"); message != "" {
+		reason += " " + message
 	}
 	return reason
+}
+
+// logField renders one value of a decoded reply as text, whatever JSON type it arrived as.
+func logField(decoded response, name string) string {
+	value, ok := decoded[name]
+	if !ok || value == nil {
+		return ""
+	}
+	return oneLine([]byte(fmt.Sprintf("%v", value)))
 }
 
 func oneLine(body []byte) string {
