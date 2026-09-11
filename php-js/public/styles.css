@@ -1,0 +1,691 @@
+/* ==========================================================================
+   Hosted Fields checkout — payer-facing stylesheet
+
+   SHARED FILE. The source of truth is shared/public/styles.css; the copy in
+   every app is written by scripts/sync-shared.sh. Edit it there, run the
+   script, commit both.
+
+   Shipped as written: no build step, no dependencies, no external fonts,
+   no images, no url() anywhere.
+
+   THE SEAM
+   ---------------------------------------------------------------------------
+   The card fields are cross-origin iframes. This file styles the OUTSIDE of
+   each field (the container div). The INSIDE (the real <input>) is styled by
+   a JS property bag passed to HostedFields.init(), which cannot see this file.
+
+   Values that must agree across that seam are marked [SEAM]. They are not
+   copied into JS by hand: fieldStyle() in public/checkout.js reads these very
+   custom properties with getComputedStyle() and hands them to the SDK. Change
+   a [SEAM] value here and both surfaces move together.
+   Never hard-code a [SEAM] value in JS.
+
+   Not usable on .hf-field (the SDK rejects them): transform, opacity,
+   clip-path, filter, positioning tricks, or anything overlaying the field.
+   So: no hover lift, no fade-in, no icon inside the box.
+   ========================================================================== */
+
+:root {
+  /* [SEAM] typography of the card values -------------------------------- */
+  --pay-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --pay-field-text: 16px;      /* 16px also stops iOS zoom-on-focus */
+  --pay-field-weight: 500;
+  --pay-field-tracking: 0.01em;
+
+  /* [SEAM] geometry of the field --------------------------------------- */
+  --pay-field-h: 52px;         /* container height AND the inside line-height */
+  --pay-field-pad-x: 14px;     /* container has none; the inside gets 0 var 0 var */
+
+  /* [SEAM] colours ------------------------------------------------------ */
+  --pay-ink: #0a0b0c;          /* card value text */
+  --pay-muted: #69747a;        /* placeholder text */
+  --pay-field-bg: #ffffff;     /* both surfaces, or the seam shows */
+  --pay-accent: #348bff;       /* caret inside, focus ring outside */
+
+  /* outside only -------------------------------------------------------- */
+  --pay-radius-control: 8px;
+  --pay-radius-card: 16px;
+  --pay-bg: #f9f9f9;
+  --pay-card: #ffffff;
+  --pay-line: #d3dce8;
+  --pay-inset: #f7f9fc;
+  --pay-skeleton: #e6eaf0;
+  --pay-accent-press: #0063e7;
+  --pay-ring: rgba(52, 139, 255, 0.28);
+  --pay-danger: #ec493d;
+  --pay-danger-ink: #b5271c;
+  --pay-danger-bg: #fdf0ef;
+  --pay-danger-ring: rgba(236, 73, 61, 0.22);
+  --pay-ok: #2fa04a;
+  --pay-ok-bg: #eef8ef;
+  --pay-warn: #b26f00;
+  --pay-warn-bg: #fff6e6;
+  --pay-shadow-card: 0 1px 2px rgba(14, 40, 65, 0.04), 0 8px 24px rgba(14, 40, 65, 0.06);
+  --pay-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark theme. Declared twice on purpose: once for the explicit toggle, once
+   for the system preference when the payer has not chosen. Both blocks must
+   stay identical. The iframes do not inherit any of it — checkout.js pushes
+   the recomputed bag with sdk.setStyle() after a theme change. */
+:root[data-theme="dark"] {
+  --pay-ink: #eef2f6;
+  --pay-muted: #94a3b1;
+  --pay-field-bg: #0e151d;
+  --pay-accent: #4f9bff;
+  --pay-bg: #0b1017;
+  --pay-card: #131a23;
+  --pay-line: #27323e;
+  --pay-inset: #101822;
+  --pay-skeleton: #1d2734;
+  --pay-accent-press: #348bff;
+  --pay-ring: rgba(79, 155, 255, 0.34);
+  --pay-danger: #ff6b5e;
+  --pay-danger-ink: #ffb3ab;
+  --pay-danger-bg: #231514;
+  --pay-danger-ring: rgba(255, 107, 94, 0.26);
+  --pay-ok: #4ecb54;
+  --pay-ok-bg: #12200f;
+  --pay-warn: #ffbe5c;
+  --pay-warn-bg: #241c0c;
+  --pay-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --pay-ink: #eef2f6;
+    --pay-muted: #94a3b1;
+    --pay-field-bg: #0e151d;
+    --pay-accent: #4f9bff;
+    --pay-bg: #0b1017;
+    --pay-card: #131a23;
+    --pay-line: #27323e;
+    --pay-inset: #101822;
+    --pay-skeleton: #1d2734;
+    --pay-accent-press: #348bff;
+    --pay-ring: rgba(79, 155, 255, 0.34);
+    --pay-danger: #ff6b5e;
+    --pay-danger-ink: #ffb3ab;
+    --pay-danger-bg: #231514;
+    --pay-danger-ring: rgba(255, 107, 94, 0.26);
+    --pay-ok: #4ecb54;
+    --pay-ok-bg: #12200f;
+    --pay-warn: #ffbe5c;
+    --pay-warn-bg: #241c0c;
+    --pay-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* ---------------------------------------------------------------- page --- */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { color-scheme: light dark; }
+
+body {
+  margin: 0;
+  padding: 32px 16px 64px;
+  min-height: 100vh;
+  background: var(--pay-bg);
+  color: var(--pay-ink);
+  font-family: var(--pay-font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.pay-wrap {
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.pay-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 22px;
+  background: var(--pay-card);
+  border: 1px solid var(--pay-line);
+  border-radius: var(--pay-radius-card);
+  box-shadow: var(--pay-shadow-card);
+}
+
+.pay-foot {
+  margin: 14px 2px 0;
+  font-size: 11.5px;
+  color: var(--pay-muted);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------- summary --- */
+
+.pay-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pay-summary__merchant {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pay-muted);
+}
+
+.pay-summary__order {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--pay-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-summary__total {
+  flex: none;
+  text-align: right;
+}
+
+.pay-summary__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pay-muted);
+}
+
+.pay-summary__amount {
+  display: block;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-theme {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--pay-line);
+  border-radius: var(--pay-radius-control);
+  background: transparent;
+  color: var(--pay-muted);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 140ms var(--pay-ease), border-color 140ms var(--pay-ease);
+}
+
+.pay-theme:hover {
+  color: var(--pay-accent);
+  border-color: var(--pay-accent);
+}
+
+/* --------------------------------------------------------------- form --- */
+
+.pay-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pay-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--pay-line);
+}
+
+.pay-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pay-section__head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+
+/* Scheme wordmarks. Must live here, outside every field box: an element
+   overlaying an input is rejected by the SDK. */
+.pay-scheme {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pay-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-scheme--detected { color: var(--pay-ink); }
+
+.pay-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pay-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pay-ink);
+}
+
+/* Expiry and CVV stay side by side all the way down. At 360px the row is
+   ~316px wide, which leaves 180px / 128px — both still comfortable. */
+.pay-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 380px) {
+  body { padding: 20px 12px 48px; }
+  .pay-card { padding: 20px 16px; }
+  .pay-row { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 8px; }
+  :root { --pay-field-pad-x: 12px; }
+}
+
+/* -------------------------------------------------------------- field --- */
+
+.hf-field {
+  height: var(--pay-field-h);
+  box-sizing: border-box;
+  background: var(--pay-field-bg);
+  border: 1px solid var(--pay-line);
+  border-radius: var(--pay-radius-control);
+  overflow: hidden;
+  transition: border-color 160ms var(--pay-ease), box-shadow 160ms var(--pay-ease);
+}
+
+/* The iframe has no intrinsic size — it fills the container. Required. */
+.hf-field iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* :focus-within and :has() never fire across the origin boundary. Only these
+   SDK-toggled classes are available as hooks. */
+.hf-field:hover { border-color: var(--pay-muted); }
+
+.hf-field--focus,
+.hf-field--focus:hover {
+  border-color: var(--pay-accent);
+  box-shadow: 0 0 0 3px var(--pay-ring);
+}
+
+/* Set on all three fields at once — there is no per-field validity. The
+   message in #formError carries which value is wrong. */
+.hf-field--error,
+.hf-field--error:hover {
+  border-color: var(--pay-danger);
+  box-shadow: 0 0 0 3px var(--pay-danger-ring);
+}
+
+.hf-field--error.hf-field--focus {
+  box-shadow: 0 0 0 3px var(--pay-danger-ring);
+}
+
+/* Loading, before onReady. The container must stay empty in the markup, so
+   the placeholder bar is a background image — and a gradient, because url()
+   is unavailable. Static: no shimmer, nothing to read as progress. */
+.pay-form--loading .hf-field {
+  background-image: linear-gradient(var(--pay-skeleton), var(--pay-skeleton));
+  background-repeat: no-repeat;
+  background-size: var(--pay-skel, 100px) 10px;
+  background-position: var(--pay-field-pad-x) center;
+}
+
+.pay-form--loading #cardNumber { --pay-skel: 148px; }
+.pay-form--loading #expiryDate { --pay-skel: 58px; }
+.pay-form--loading #cvv { --pay-skel: 34px; }
+
+/* ----------------------------------------------- our own inputs --------- */
+/* First name, last name, email are same-origin: ordinary inputs on our page.
+   They borrow the card field's custom properties so the two match to the
+   pixel, but they are NOT under the SDK's restrictions — :focus, :invalid,
+   ::placeholder and a per-field error message all work here. */
+
+.pay-input {
+  height: var(--pay-field-h);
+  width: 100%;
+  min-width: 0;
+  padding: 0 var(--pay-field-pad-x);
+  background: var(--pay-field-bg);
+  color: var(--pay-ink);
+  border: 1px solid var(--pay-line);
+  border-radius: var(--pay-radius-control);
+  font-family: var(--pay-font);
+  font-size: var(--pay-field-text);
+  font-weight: var(--pay-field-weight);
+  letter-spacing: var(--pay-field-tracking);
+  transition: border-color 160ms var(--pay-ease), box-shadow 160ms var(--pay-ease);
+}
+
+.pay-input::placeholder {
+  color: var(--pay-muted);
+  font-weight: var(--pay-field-weight);
+}
+
+.pay-input:hover { border-color: var(--pay-muted); }
+
+.pay-input:focus {
+  border-color: var(--pay-accent);
+  box-shadow: 0 0 0 3px var(--pay-ring);
+  outline: none;
+}
+
+/* Set on the one field at fault, unlike .hf-field--error. */
+.pay-input--error,
+.pay-input--error:focus {
+  border-color: var(--pay-danger);
+  box-shadow: 0 0 0 3px var(--pay-danger-ring);
+}
+
+.pay-hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pay-danger-ink);
+}
+
+.pay-hint:empty { display: none; }
+
+/* --------------------------------------------------------------- error --- */
+
+#formError {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--pay-danger-bg);
+  border: 1px solid var(--pay-danger);
+  border-radius: var(--pay-radius-control);
+  color: var(--pay-danger-ink);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* Resting state: the glyph lives in the markup permanently, so :empty never
+   matches. showFormError()/clearFormError() toggle role="alert" instead, and
+   that is what decides whether the box takes space. */
+#formError:not([role="alert"]) { display: none; }
+
+/* The glyph lives in the markup and is hidden until there is a message, so
+   the error is never signalled by colour alone. */
+#formError svg { flex: none; margin-top: 1px; }
+
+/* --------------------------------------------------------------- pay --- */
+
+.pay-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#pay {
+  height: 52px;
+  width: 100%;
+  border: 0;
+  border-radius: var(--pay-radius-control);
+  background: var(--pay-accent);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background-color 140ms var(--pay-ease);
+}
+
+#pay:hover:not(:disabled) { background: #347aff; }
+#pay:active:not(:disabled) { background: var(--pay-accent-press); }
+
+#pay:disabled {
+  background: var(--pay-inset);
+  box-shadow: inset 0 0 0 1px var(--pay-line);
+  color: var(--pay-muted);
+  cursor: not-allowed;
+}
+
+.pay-secure {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pay-muted);
+}
+
+.pay-secure svg { flex: none; margin-top: 2px; }
+
+/* ------------------------------------------------------------- status --- */
+
+#orderStatus {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--pay-line);
+}
+
+#orderStatus[hidden] { display: none; }
+
+/* Tone is set by a class on #orderStatus, so one variable drives badge,
+   title and tint. */
+.status { --status-tone: var(--pay-accent); --status-tint: var(--pay-inset); }
+.status--approved { --status-tone: var(--pay-ok); --status-tint: var(--pay-ok-bg); }
+.status--declined,
+.status--error { --status-tone: var(--pay-danger); --status-tint: var(--pay-danger-bg); }
+.status--filtered { --status-tone: var(--pay-warn); --status-tint: var(--pay-warn-bg); }
+
+.status__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status__badge {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--status-tint);
+  color: var(--status-tone);
+  box-shadow: inset 0 0 0 1px var(--status-tone);
+}
+
+.status__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pay-muted);
+}
+
+.status__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  color: var(--status-tone);
+}
+
+.status__body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--pay-muted);
+  text-wrap: pretty;
+}
+
+.status__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status__step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--pay-muted);
+}
+
+.status__step::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--pay-line);
+}
+
+.status__step--done {
+  color: var(--pay-ink);
+  font-weight: 500;
+}
+
+.status__step--done::before {
+  background: var(--pay-accent);
+  box-shadow: none;
+}
+
+/* Result detail list: the handful of values a payer or a support agent would
+   actually quote. */
+.status__rows {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  margin: 0;
+  border-top: 1px solid var(--pay-line);
+}
+
+.status__rows dt {
+  grid-column: 1;
+  padding: 9px 18px 9px 0;
+  border-bottom: 1px solid var(--pay-line);
+  font-size: 12.5px;
+  color: var(--pay-muted);
+  white-space: nowrap;
+}
+
+.status__rows dd {
+  grid-column: 2;
+  margin: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--pay-line);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* Everything else the gateway returned, one disclosure away. */
+.status__raw summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pay-accent);
+  list-style: none;
+}
+
+.status__raw summary::-webkit-details-marker { display: none; }
+
+.status__grid {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 4px 14px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: var(--pay-inset);
+  border: 1px solid var(--pay-line);
+  border-radius: var(--pay-radius-control);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+.status__grid dt { color: var(--pay-muted); white-space: nowrap; }
+.status__grid dd { margin: 0; overflow-wrap: anywhere; }
+
+.status__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.btn-primary,
+.btn-secondary {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: var(--pay-radius-control);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 140ms var(--pay-ease), border-color 140ms var(--pay-ease), color 140ms var(--pay-ease);
+}
+
+.btn-primary {
+  border: 0;
+  background: var(--pay-accent);
+  color: #ffffff;
+}
+
+.btn-primary:hover { background: #347aff; }
+
+.btn-secondary {
+  border: 1px solid var(--pay-line);
+  background: transparent;
+  color: var(--pay-ink);
+}
+
+.btn-secondary:hover {
+  border-color: var(--pay-accent);
+  color: var(--pay-accent);
+}
+
+/* --------------------------------------------------------------- misc --- */
+
+a { color: var(--pay-accent); }
+a:hover { color: var(--pay-accent-press); }
+
+:focus-visible {
+  outline: 3px solid var(--pay-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0ms !important; }
+}
