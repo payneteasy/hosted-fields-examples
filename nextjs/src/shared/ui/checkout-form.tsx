@@ -407,7 +407,11 @@ export function CheckoutForm({ config }: { config: CheckoutConfig }) {
 
         <div className="pay-actions">
           <button type="submit" id="pay" disabled={!ready || inFlight || terminal !== undefined}>
-            {!ready ? 'Preparing…' : inFlight ? 'Processing…' : (terminal ?? payLabel)}
+            {/* The terminal label comes first: an error the page cannot come back from can land
+                before onReady ever fires — no ephemeralTicket, or an SDK bundle that failed to
+                load — and "Preparing…" would then sit there for good, saying nothing the payer
+                can act on. The plain-JS examples say the same thing in showFormError(). */}
+            {terminal ?? (!ready ? 'Preparing…' : inFlight ? 'Processing…' : payLabel)}
           </button>
 
           <p className="pay-secure">
