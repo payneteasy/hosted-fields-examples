@@ -104,6 +104,21 @@ jobs:
           tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
           rm -rf "../dist-release/${dir:?}"
 
+      # Like the Python one, this artefact is not self-contained: the target runs
+      # `bundle install` against the committed Gemfile.lock, which pins every version.
+      - name: ruby-sinatra-js
+        working-directory: ruby-sinatra-js
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="hosted-fields-examples-ruby"
+          dir="${name}_${tag}"
+          mkdir -p "../dist-release/$dir"
+          cp app.rb config.ru settings.rb oauth.rb control.rb paynet.rb Gemfile Gemfile.lock \
+             .env.example README.md "../dist-release/$dir/"
+          cp -r test public views deploy "../dist-release/$dir/"
+          tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
+          rm -rf "../dist-release/${dir:?}"
+
       # `output: 'standalone'` gives one server.js plus a minimal node_modules, so this
       # artefact needs nothing but Node 20 either. BASE_PATH is baked in at build time, so the
       # release carries the default prefix — rebuild from source to mount it elsewhere.
@@ -151,6 +166,9 @@ jobs:
             - `hosted-fields-examples-python.tar.gz` — the sources with `tests/`, `public/`,
               `views/` and `deploy/`. Needs Python 3.12+ and, unlike the others, a
               `pip install -r requirements.txt` into a venv on the target; then gunicorn.
+            - `hosted-fields-examples-ruby.tar.gz` — the sources with `test/`, `public/`,
+              `views/` and `deploy/`. Needs Ruby 3.1+ and a `bundle install` on the target, then
+              puma. Note that macOS's system Ruby 2.6 will not run it.
             - `hosted-fields-examples-nextjs.tar.gz` — the standalone Next.js server with
               `public/`, `.next/` and `deploy/`. Needs Node 20+, `node server.js`. The URL
               prefix is compiled in: rebuild from source to change it.
