@@ -7,9 +7,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "next dev --port ${PORT:-3002}",
+    "dev": "next dev --port ${PORT:-3002} --hostname ${HOSTNAME:-127.0.0.1}",
     "build": "next build",
-    "start": "next start --port ${PORT:-3002}",
+    "start": "next start --port ${PORT:-3002} --hostname ${HOSTNAME:-127.0.0.1}",
     "lint:biome": "biome check && tsc --noEmit",
     "lint:fsd": "steiger ./src",
     "lint": "yarn lint:biome && yarn lint:fsd",

@@ -3,7 +3,8 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { BASE_PATH, ENDPOINT_ID, MERCHANT_CONTROL, ORDER_AMOUNT, ORDER_CURRENCY, PORT, SDK_URL } from './config.js';
+import { SIGNED_CALLBACK_FIELDS, validCallback } from './callback.js';
+import { BASE_PATH, ENDPOINT_ID, LISTEN_ADDR, MERCHANT_CONTROL, ORDER_AMOUNT, ORDER_CURRENCY, PORT, SDK_URL } from './config.js';
 import { createSale, getEphemeralTicket, getStatus } from './paynet.js';
 
 // Assets sit next to the bundle in a build, and one level up from src/ in the repo
@@ -14,7 +15,10 @@ const viewsDir = join(rootDir, 'views');
 const app = express();
 const router = express.Router();
 
-app.set('trust proxy', true); // behind nginx req.ip comes from X-Forwarded-For
+// Behind nginx req.ip comes from X-Forwarded-For. The header is taken on trust, which is one of
+// the reasons the app binds to loopback by default: exposed straight to the internet this would
+// let any caller pick the address the gateway screens for fraud.
+app.set('trust proxy', true);
 app.use(express.json());
 // The gateway posts the 3DS return as a form
 app.use(express.urlencoded({ extended: false }));
@@ -197,4 +201,4 @@ app.use((error, _req, res, _next) => {
   res.status(502).json({ error: error.message });
 });
 
-app.listen(PORT, () => console.log(`Listening on http://localhost:${PORT}${BASE_PATH}/`));
+app.listen(PORT, LISTEN_ADDR, () => console.log(`Listening on http://${LISTEN_ADDR}:${PORT}${BASE_PATH}/`));

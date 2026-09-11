@@ -16,6 +16,9 @@ WorkingDirectory=/opt/hosted-fields-examples-nextjs
 # These reach the app as real environment variables, which is also how the standalone server
 # picks up PORT, so nothing here depends on a .env file being present.
 EnvironmentFile=/etc/hosted-fields-examples-nextjs.env
+# The standalone server binds every interface unless HOSTNAME says otherwise, and this example
+# speaks plain HTTP and trusts X-Forwarded-For — both only safe with nginx in front.
+Environment=HOSTNAME=127.0.0.1
 ExecStart=/usr/bin/node server.js
 
 Restart=on-failure

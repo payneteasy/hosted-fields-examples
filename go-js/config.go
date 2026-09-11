@@ -11,7 +11,10 @@ import (
 
 // Settings, all of them environment variables. See .env.example.
 type config struct {
-	Port          string
+	Port string
+	// Interface to listen on. The default is loopback: the example speaks plain HTTP and trusts
+	// X-Forwarded-For, both of which are only safe with a proxy in front. Set 0.0.0.0 knowingly.
+	ListenAddr    string
 	BasePath      string // URL prefix everything is mounted under
 	PublicURL     string // origin the payer's browser sees, no path
 	APIURL        string
@@ -38,8 +41,9 @@ func loadConfig(envFile string) (config, error) {
 	}
 
 	c := config{
-		Port:     env("PORT", "3001"),
-		BasePath: env("BASE_PATH", "/hosted-fields-examples-go"),
+		Port:       env("PORT", "3001"),
+		ListenAddr: env("LISTEN_ADDR", "127.0.0.1"),
+		BasePath:   env("BASE_PATH", "/hosted-fields-examples-go"),
 		// No default: the gateway host is per-installation, and a stale one baked in here
 		// would silently point a real payment somewhere it does not belong. Required below.
 		APIURL:          env("API_URL", ""),

@@ -49,8 +49,8 @@ func main() {
 	// keeps the relative asset URLs on the payment page working.
 	mux.Handle("GET "+cfg.BasePath+"/", http.StripPrefix(cfg.BasePath+"/", http.FileServerFS(public)))
 
-	address := ":" + cfg.Port
-	log.Printf("listening on http://localhost%s%s/", address, cfg.BasePath)
+	address := net.JoinHostPort(cfg.ListenAddr, cfg.Port)
+	log.Printf("listening on http://%s%s/", address, cfg.BasePath)
 	log.Fatal(http.ListenAndServe(address, mux))
 }
 
@@ -259,7 +259,9 @@ func validCallback(form url.Values) bool {
 }
 
 // clientIP is the payer's address, which the platform uses for fraud screening.
-// Behind nginx it only arrives in X-Forwarded-For, so the proxy must set it.
+// Behind nginx it only arrives in X-Forwarded-For, so the proxy must set it — and the header is
+// taken on trust, which is one of the reasons the app binds to loopback by default. Exposed
+// straight to the internet this would let any caller pick the address the gateway screens.
 func clientIP(r *http.Request) string {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
