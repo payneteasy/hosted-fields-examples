@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Card field</title>
+  <link rel="stylesheet" href="/hf/field.css">
+</head>
+<body>
+  <!-- One card value, in a document of its own on the gateway's origin. The merchant page can
+       neither read this input nor style its inside with CSS: everything it wants to say about
+       the value arrives as a style bag over postMessage. -->
+  <input id="value" type="text" autocomplete="off" spellcheck="false" aria-label="Card field">
+  <script src="/hf/field.js"></script>
+</body>
+</html>

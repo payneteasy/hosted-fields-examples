@@ -1,0 +1,8 @@
+node_modules/
+.tmp/
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+# .env, *.pem and *.key are ignored repository wide, see the root .gitignore. The generated
+# RSA pair lives in .tmp/ and is covered twice over.

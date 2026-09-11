@@ -141,6 +141,33 @@ cd nextjs            && yarn install && yarn lint && yarn build
 
 The first line is what CI runs — see `.github/workflows/ci.yml`.
 
+## The end-to-end tests
+
+`e2e-tests/` starts a fake gateway on one origin, points all three apps at it with environment
+variables and drives a browser through the payment. It is **local only and not part of CI or of
+the checks above** — it needs three toolchains, a browser and a `next build`.
+
+```bash
+cd e2e-tests && npm test        # or test:go / test:express / test:nextjs
+```
+
+Four things about it are load-bearing:
+
+- **It is a standalone npm project.** Playwright is never added to an app's `package.json`: the
+  dependency lists in `nodejs-express-js/` and `nextjs/` are deliberately minimal, and that is
+  part of what the examples demonstrate.
+- **It changes nothing in an app.** Every setting reaches the three servers as a process
+  environment variable, which wins over `.env` in all three, so no `.env` is read for those
+  values or written. If a change to an app looks necessary to make a test pass, the test has
+  probably found something.
+- **`API_URL` and `SDK_URL` must name the same origin**, because each app builds its
+  Content-Security-Policy from `SDK_URL` and the card fields are iframes from that host.
+- **`e2e-tests/src/sdk/` is not a `shared/` file.** It is a stand-in for the bundle the gateway
+  serves, written in the same ES5 style as `public/`, and `scripts/sync-shared.sh` does not touch
+  it.
+
+Running it rebuilds `nextjs/.next`, because `basePath` is baked in at build time.
+
 ## Documentation
 
 Link to `doc.payneteasy.com`, never to internal or staging hosts. The integration reference is

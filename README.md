@@ -149,6 +149,7 @@ scripts/sync-shared.sh  copies it into every app
 go-js/                  Go + plain JS, assets embedded in the binary
 nodejs-express-js/      Node.js + Express + plain JS
 nextjs/                 Next.js + React + TypeScript
+e2e-tests/              a fake gateway, and all three driven through a browser
 ```
 
 The copies stay committed, so every app directory runs on its own with no pre-step and the
@@ -192,6 +193,23 @@ This repository is English throughout. The payer can still see another language:
 messages come from the SDK bundle the gateway serves, as `error.payerMessage`, not from this code.
 If you show the payer text in a language of your own, switch on `error.code` and supply your own
 string — codes are stable and are never reused.
+
+## Checking all three at once
+
+The three examples are the same payment written three times, and `e2e-tests/` is what checks that
+they still are. It starts a fake gateway on one local origin — the API the servers call and the
+Hosted Fields SDK the browser loads — points all three apps at it with environment variables, and
+drives a real browser through the payment.
+
+```bash
+cd e2e-tests
+npm install && npm run browser   # once
+npm test
+```
+
+It runs locally only, not in CI, and it needs all three toolchains. The signatures and the 3DS
+checksum are verified rather than accepted, so a green run means the whole handshake works and
+not just that a page rendered. See [`e2e-tests/README.md`](e2e-tests/README.md).
 
 ## Documentation
 

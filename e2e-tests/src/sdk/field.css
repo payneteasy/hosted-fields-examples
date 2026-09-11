@@ -1,0 +1,20 @@
+/* The container on the merchant page draws the box, the ring and the background edge. In here
+   there is only the value, and every property that decides how it looks arrives from the style
+   bag the merchant passed to HostedFields.init(). */
+html,
+body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	background: transparent;
+}
+
+#value {
+	width: 100%;
+	height: 100%;
+	box-sizing: border-box;
+	border: 0;
+	outline: none;
+	background: transparent;
+	font: inherit;
+}
