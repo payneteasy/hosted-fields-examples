@@ -6,7 +6,7 @@
 
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { PRIVATE_KEY_PATH } from './keys.ts';
 import {
   API_URL,
@@ -28,6 +28,10 @@ const GO_BINARY_OUT = join(TMP_DIR, 'hosted-fields-example-go');
 /** The Flask example's virtualenv, here for the same reason: the suite must leave every app
  *  directory exactly as it found it. */
 const PYTHON_VENV = join(TMP_DIR, 'python-flask-venv');
+
+/** And the Ruby example's gems. BUNDLE_PATH points bundler here as an environment variable,
+ *  rather than `bundle config set path`, which would write a .bundle/config into the app. */
+const RUBY_GEMS = join(TMP_DIR, 'ruby-sinatra-gems');
 
 export interface AppUnderTest {
   /** Playwright project name, and the directory the app lives in. */
@@ -59,6 +63,23 @@ export function goBinary(): string {
   }
   // Falls back to PATH; if it is not there either the webServer start fails with ENOENT.
   return 'go';
+}
+
+/**
+ * macOS ships an end-of-life Ruby 2.6 as /usr/bin/ruby, which Sinatra 4 will not run on, so a
+ * modern one usually lives outside PATH — on this machine at ~/opt/ruby, beside go and node.
+ */
+export function rubyBinary(): string {
+  const candidates = [process.env.RUBY_BIN, join(homedir(), 'opt', 'ruby', 'bin', 'ruby')].filter(
+    (candidate): candidate is string => Boolean(candidate),
+  );
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  // Falls back to PATH, where it may well be the 2.6 that cannot run this app.
+  return 'ruby';
 }
 
 function gatewayEnv(port: number): Record<string, string> {
@@ -135,6 +156,30 @@ export const APPS: AppUnderTest[] = [
     // everything gatewayEnv passes, and this closes the one gap it leaves.
     env: { ...gatewayEnv(4015), BASE_PATH: '/hosted-fields-examples-python' },
     // A cold `pip install cryptography` is slower than any server start
+    startTimeout: 180_000,
+  },
+  {
+    name: 'ruby-sinatra-js',
+    port: 4016,
+    basePath: '/hosted-fields-examples-ruby',
+    cwd: join(REPO_ROOT, 'ruby-sinatra-js'),
+    // The gems go to .tmp/, like the Flask virtualenv and the Go binary, so the app directory is
+    // untouched.
+    command: 'bundle install --quiet && exec bundle exec ruby app.rb',
+    env: {
+      ...gatewayEnv(4016),
+      // BASE_PATH is pinned for the same reason as the PHP and Flask entries: the app runs from
+      // its own directory, so ruby-sinatra-js/.env is in reach.
+      BASE_PATH: '/hosted-fields-examples-ruby',
+      // BUNDLE_PATH rather than `bundle config set path`, which would write a .bundle/config
+      // into the app directory.
+      BUNDLE_PATH: RUBY_GEMS,
+      // `bundle` and `bundle exec ruby` both resolve `ruby` through PATH, and on macOS that is
+      // the end-of-life 2.6 that Sinatra 4 refuses to run on — bundler says so and exits 1.
+      // Naming the located ruby first is what makes the whole command line agree on one.
+      PATH: `${dirname(rubyBinary())}${delimiter}${process.env.PATH ?? ''}`,
+    },
+    // The first run compiles puma's native extension
     startTimeout: 180_000,
   },
   {

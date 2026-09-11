@@ -13,6 +13,7 @@
     "test:express": "playwright test --project=nodejs-express-js",
     "test:php": "playwright test --project=php-js",
     "test:python": "playwright test --project=python-flask-js",
+    "test:ruby": "playwright test --project=ruby-sinatra-js",
     "test:nextjs": "playwright test --project=nextjs",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",
