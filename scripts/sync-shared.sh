@@ -20,6 +20,7 @@ PLAIN_JS_APPS=(
   python-flask-js
   ruby-sinatra-js
   java-springboot-js
+  kotlin-ktor-js
   rust-axum-js
   dotnet-aspnetcore-js
 )

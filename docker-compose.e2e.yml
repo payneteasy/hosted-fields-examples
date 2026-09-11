@@ -107,6 +107,9 @@ services:
   java:
     <<: *e2e-app
 
+  kotlin:
+    <<: *e2e-app
+
   rust:
     <<: *e2e-app
 

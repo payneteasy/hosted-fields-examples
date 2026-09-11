@@ -72,6 +72,7 @@ services:
       - ./python-flask-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/python.conf:ro
       - ./ruby-sinatra-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/ruby.conf:ro
       - ./java-springboot-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/java.conf:ro
+      - ./kotlin-ktor-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/kotlin.conf:ro
       - ./rust-axum-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/rust.conf:ro
       - ./dotnet-aspnetcore-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/dotnet.conf:ro
       - ./nextjs/deploy/nginx.conf:/etc/nginx/conf.d/apps/nextjs.conf:ro
@@ -113,6 +114,10 @@ services:
   java:
     <<: *app
     build: ./java-springboot-js
+
+  kotlin:
+    <<: *app
+    build: ./kotlin-ktor-js
 
   rust:
     <<: *app
