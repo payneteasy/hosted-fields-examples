@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/sha1"
 	"crypto/subtle"
 	"embed"
@@ -11,9 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
-	"time"
 )
 
 //go:embed views public
@@ -107,7 +106,12 @@ func handlePay(w http.ResponseWriter, r *http.Request) {
 
 	browser := browserParams(payment.Browser, r)
 
-	clientOrderID := "hf-" + strconv.FormatInt(time.Now().UnixMilli(), 10)
+	clientOrderID, err := newClientOrderID()
+	if err != nil {
+		fail(w, err)
+		return
+	}
+
 	sale, err := createSale(payment.HostedFieldsToken, clientOrderID, clientIP(r), browser, payment.Customer)
 	if err != nil {
 		fail(w, err)
@@ -116,6 +120,18 @@ func handlePay(w http.ResponseWriter, r *http.Request) {
 
 	sale["clientOrderId"] = clientOrderID
 	writeJSON(w, http.StatusOK, sale)
+}
+
+// newClientOrderID is the merchant's own identifier for the order. It is random rather than
+// sequential or clock-based: the page hands it back on every /status poll, so an id that can be
+// guessed would make somebody else's order readable — and two payers in the same millisecond
+// would have collided.
+func newClientOrderID() (string, error) {
+	id := make([]byte, 16)
+	if _, err := rand.Read(id); err != nil {
+		return "", err
+	}
+	return "hf-" + hex.EncodeToString(id), nil
 }
 
 // browserFields are the 3DS 2.0 values the page is allowed to supply. Everything else the Sale

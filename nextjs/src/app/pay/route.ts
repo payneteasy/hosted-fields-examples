@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { pickBrowser } from '@/shared/lib/browser-info';
 import { clientIp } from '@/shared/lib/callback';
@@ -27,7 +28,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'hostedFieldsToken is required' }, { status: 400 });
   }
 
-  const clientOrderId = `hf-${Date.now()}`;
+  // Random rather than clock-based: the page hands this back on every /status poll, so an id that
+  // can be guessed would make somebody else's order readable — and two payers in the same
+  // millisecond would have collided.
+  const clientOrderId = `hf-${randomUUID()}`;
 
   try {
     const sale = await createSale({

@@ -4,6 +4,9 @@
 
 var FINAL_STATUSES = ['approved', 'declined', 'error', 'filtered'];
 var POLL_INTERVAL = 4000;
+// Roughly three minutes. A payment that has not resolved by then is not going to resolve while
+// the payer watches, and a page that polls a wedged server until the tab closes helps nobody.
+var MAX_POLLS = 45;
 
 // The order does not outlive the page: after the 3DS redirect the return page
 // gets it from the server, which takes it from the signed callback.
@@ -11,9 +14,19 @@ function pollStatus(order) {
   var url = order.basePath + '/status?orderId=' + encodeURIComponent(order.orderId) +
     '&clientOrderId=' + encodeURIComponent(order.clientOrderId);
 
+  order.attempts = (order.attempts || 0) + 1;
+
   fetch(url)
     .then(function (response) { return response.json(); })
     .then(function (status) {
+      // A 502 from our own server parses as JSON too, and it carries no status — which reads as
+      // 'processing' below. Without this the page would poll a broken server for as long as it
+      // stayed open.
+      if (!status.status) {
+        showStatus({ status: 'error', 'error-message': status.error || 'The server did not return an order status.' });
+        return;
+      }
+
       showStatus(status);
 
       // 3DS: the gateway asks to send the payer to the issuer, once
@@ -24,6 +37,11 @@ function pollStatus(order) {
       }
 
       if (FINAL_STATUSES.indexOf(status.status) !== -1) return;
+
+      if (order.attempts >= MAX_POLLS) {
+        showStatus({ status: 'error', 'error-message': 'The bank did not answer in time. The payment may still complete — check your email or contact the merchant before paying again.' });
+        return;
+      }
 
       setTimeout(function () { pollStatus(order); }, POLL_INTERVAL);
     })

@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -102,7 +102,10 @@ router.post('/pay', async (req, res, next) => {
     const { hostedFieldsToken, browser, customer } = req.body;
     if (!hostedFieldsToken) return res.status(400).json({ error: 'hostedFieldsToken is required' });
 
-    const clientOrderId = `hf-${Date.now()}`;
+    // Random rather than clock-based: the page hands this back on every /status poll, so an id
+    // that can be guessed would make somebody else's order readable — and two payers in the
+    // same millisecond would have collided.
+    const clientOrderId = `hf-${randomUUID()}`;
     const sale = await createSale({
       hostedFieldsToken,
       clientOrderId,
