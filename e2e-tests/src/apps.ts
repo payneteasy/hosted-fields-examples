@@ -54,7 +54,7 @@ export interface AppUnderTest {
   /** Playwright project name, and the directory the app lives in. */
   name: string;
   /** Its service in docker-compose.yml. The docker mode starts only the ones a run asks for,
-   *  rather than building all nine to exercise one. */
+   *  rather than building all ten to exercise one. */
   service: string;
   port: number;
   /** Left at each app's own default: overriding it would mean rebuilding nextjs. */
@@ -298,6 +298,26 @@ export const APPS: AppUnderTest[] = [
     startTimeout: 600_000,
   },
   {
+    name: 'kotlin-ktor-js',
+    service: 'kotlin',
+    port: 4021,
+    basePath: '/hosted-fields-examples-kotlin',
+    cwd: join(REPO_ROOT, 'kotlin-ktor-js'),
+    // Like the Spring Boot entry, the build output goes to the app's own build/, which is
+    // git-ignored, and Gradle's cache is ~/.gradle — outside the repository either way.
+    command:
+      './gradlew -q buildFatJar && exec java -jar build/libs/hosted-fields-example-kotlin.jar',
+    env: {
+      ...gatewayEnv(4021),
+      // BASE_PATH is pinned for the same reason as the PHP, Flask, Sinatra and Spring Boot
+      // entries: the app runs from its own directory, so kotlin-ktor-js/.env is in reach.
+      BASE_PATH: '/hosted-fields-examples-kotlin',
+      ...javaEnv(),
+    },
+    // A cold run downloads Gradle itself, then Kotlin and Ktor; a warm one is a few seconds
+    startTimeout: 600_000,
+  },
+  {
     name: 'rust-axum-js',
     service: 'rust',
     port: 4018,
@@ -393,7 +413,7 @@ export function startedApps(): AppUnderTest[] {
 }
 
 /**
- * Where this app answers. Natively that is its own port; behind compose all nine share the one
+ * Where this app answers. Natively that is its own port; behind compose all ten share the one
  * nginx origin and are told apart by their BASE_PATH — which is the whole reason the specs go
  * through this function and appUrl() rather than naming a port.
  */
