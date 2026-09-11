@@ -1,7 +1,8 @@
 # Hosted Fields examples
 
-Four merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/` and
-`nextjs/`. They exist to be read, so clarity beats cleverness everywhere in this repository.
+Five merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
+`python-flask-js/` and `nextjs/`. They exist to be read, so clarity beats cleverness everywhere in
+this repository.
 
 ## The rule that breaks most often
 
@@ -119,6 +120,22 @@ explained where it is enforced:
   a name and keep the last of a repeated one. The 3DS return is verified and then forwarded, and
   those must be the same value.
 
+## Flask, in `python-flask-js/` only
+
+Flask brings a template engine and a router into an example whose whole point is that neither is
+used for the page. Four rules, each explained where it is enforced:
+
+- **nothing in `views/` is templated**, which is the easiest rule in the repository to break here
+  because Jinja is already in the box. Both pages go out through `send_view`, and `config.js` is
+  the only generated thing;
+- there is **no global `errorhandler`**: one on `Exception` would catch Werkzeug's `NotFound` and
+  answer `502` to every 404, so the two handlers that call the gateway catch for themselves;
+- **`debug` stays off.** The Werkzeug debugger is remote code execution behind a payment page, and
+  its injected scripts would breach the Content-Security-Policy too;
+- **`urlopen` raises on a 4xx**, and a 4xx with a JSON body is a decline rather than a failure —
+  so the body is read off the `HTTPError`. This is the one place Python's standard library pushes
+  back against the contract, and getting it wrong turns every decline into a `502`.
+
 ## Frontend constraints
 
 Everywhere:
@@ -134,7 +151,7 @@ Everywhere:
   header and not a violation of the no-templating rule. `nextjs/` is the exception again: Next
   emits its own inline scripts, so its middleware mints a nonce per request instead.
 
-In `go-js/`, `nodejs-express-js/` and `php-js/`:
+In `go-js/`, `nodejs-express-js/`, `php-js/` and `python-flask-js/`:
 
 - No dependencies and no bundler for the browser half.
 - `public/` is ES5: `var`, `function`, no arrow functions, no template literals.
@@ -155,6 +172,8 @@ only.
 cd go-js             && gofmt -l . && go vet ./... && go build ./...
 cd nodejs-express-js && npm ci && npm run build
 cd php-js            && php -l *.php tests/*.php && php tests/run.php
+cd python-flask-js   && python -m compileall -q -x '(\.venv|__pycache__)' . \
+                     && python -m unittest discover -s tests -t .
 cd nextjs            && yarn install && yarn lint && yarn build
 ```
 
@@ -167,7 +186,7 @@ variables and drives a browser through the payment. It is **local only and not p
 the checks above** — it needs every toolchain, a browser and a `next build`.
 
 ```bash
-cd e2e-tests && npm test        # or test:go / test:express / test:php / test:nextjs
+cd e2e-tests && npm test        # or test:go / test:express / test:php / test:python / test:nextjs
 ```
 
 Four things about it are load-bearing:
