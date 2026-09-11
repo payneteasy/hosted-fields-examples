@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Payment &middot; Northwind Supply</title>
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- SHARED FILE. The source of truth is shared/views/checkout.html; the copy in every app is
+       written by scripts/sync-shared.sh. Edit it there, run the script, commit both. -->
+</head>
+<body>
+
+<main class="pay-wrap">
+  <div class="pay-card">
+
+    <!-- Order summary. The amount is the first thing on the page: the payer
+         is here to confirm a number, not to admire a form. -->
+    <div class="pay-summary">
+      <div>
+        <span class="pay-summary__merchant">Northwind Supply</span>
+        <span class="pay-summary__order">Hosted Fields example order</span>
+      </div>
+      <div class="pay-summary__total">
+        <span class="pay-summary__label">Total</span>
+        <span class="pay-summary__amount" id="orderAmount"></span>
+      </div>
+    </div>
+
+    <!-- Optional. Remove this button and the theme still follows the system
+         preference; keeping it means checkout.js must push sdk.setStyle(). -->
+    <button type="button" id="themeToggle" class="pay-theme" aria-label="Switch to the dark theme">Dark</button>
+
+    <!-- pay-form--loading is on until onReady fires. -->
+    <form id="payForm" class="pay-form pay-form--loading" autocomplete="on" novalidate>
+
+      <!-- Our own inputs: same-origin, so full CSS and per-field validation.
+           They are usable while the card iframes are still loading. -->
+      <section class="pay-section">
+        <div class="pay-section__head">
+          <h2>Your details</h2>
+        </div>
+
+        <div class="pay-row pay-row--even">
+          <div class="pay-group">
+            <label for="firstName">First name</label>
+            <input class="pay-input" id="firstName" name="firstName" type="text"
+                   autocomplete="given-name" maxlength="50" placeholder="Anna"
+                   aria-describedby="firstNameHint" required>
+            <p class="pay-hint" id="firstNameHint" aria-live="polite"></p>
+          </div>
+          <div class="pay-group">
+            <label for="lastName">Last name</label>
+            <input class="pay-input" id="lastName" name="lastName" type="text"
+                   autocomplete="family-name" maxlength="50" placeholder="Weber"
+                   aria-describedby="lastNameHint" required>
+            <p class="pay-hint" id="lastNameHint" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="pay-group">
+          <label for="email">Email</label>
+          <input class="pay-input" id="email" name="email" type="email" inputmode="email"
+                 autocomplete="email" placeholder="you@example.com"
+                 aria-describedby="emailHint" required>
+          <p class="pay-hint" id="emailHint" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <!-- Card details. Every div below is filled by the SDK with a
+           cross-origin iframe and MUST stay empty in this markup. -->
+      <section class="pay-section">
+        <div class="pay-section__head">
+          <h2>Card details</h2>
+          <!-- Scheme wordmarks live here, outside every field box: an element
+               overlaying a card input is rejected by the SDK. -->
+          <span class="pay-scheme" id="cardScheme">Visa &middot; Mastercard &middot; Amex</span>
+        </div>
+
+        <div class="pay-group">
+          <label for="cardNumber">Card number</label>
+          <div class="hf-field" id="cardNumber"></div>
+        </div>
+
+        <!-- Our own input, same-origin, sitting between the gateway's iframes. This is the
+             thing Hosted Fields buy over a redirect to a payment page: the merchant lays out
+             a field of their own in the middle of the card fields, while the number and the
+             CVV still live in another origin. The SDK does not collect the holder name. -->
+        <div class="pay-group">
+          <label for="cardholderName">Cardholder name</label>
+          <input class="pay-input" id="cardholderName" name="cardholderName" type="text"
+                 autocomplete="cc-name" maxlength="128" placeholder="ANNA WEBER"
+                 aria-describedby="cardholderNameHint">
+          <p class="pay-hint" id="cardholderNameHint" aria-live="polite"></p>
+        </div>
+
+        <div class="pay-row">
+          <div class="pay-group">
+            <label for="expiryDate">Expiry date</label>
+            <div class="hf-field" id="expiryDate"></div>
+          </div>
+          <div class="pay-group">
+            <label for="cvv">CVV</label>
+            <div class="hf-field" id="cvv"></div>
+          </div>
+        </div>
+
+        <!-- The glyph lives here permanently so the error is never colour-only, which means
+             :empty never matches. The resting state is therefore the absence of role="alert",
+             which styles.css hides; showFormError() adds the role and the text after the glyph. -->
+        <p id="formError">
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+            <path d="M8 1.4 15 14H1L8 1.4Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+            <path d="M8 6v3.4M8 11.4v.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </p>
+      </section>
+
+      <div class="pay-actions">
+        <!-- data-label is the resting label; the JS restores it after
+             Preparing… / Processing…. Disabled until onReady. -->
+        <button type="submit" id="pay" data-label="Pay" disabled>Preparing&hellip;</button>
+
+        <p class="pay-secure">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <rect x="3" y="7" width="10" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          </svg>
+          <span>Card details are encrypted inside the payment gateway. They are never sent to Northwind Supply.</span>
+        </p>
+      </div>
+    </form>
+
+    <!-- Starts hidden here; showStatus() reveals it when the payment starts. -->
+    <div id="orderStatus" class="status" hidden></div>
+  </div>
+
+  <p class="pay-foot">Payments processed by Payneteasy</p>
+</main>
+
+<!-- The server generates this one: window.CONFIG, carrying a fresh single-use
+     ephemeralTicket. Nothing else in this file is generated, which is why the file can be
+     identical whatever the server is written in. It must load first: the two below read it. -->
+<script src="config.js"></script>
+<script src="status.js"></script>
+<script src="checkout.js"></script>
+</body>
+</html>
