@@ -25,6 +25,13 @@ jobs:
           cache: npm
           cache-dependency-path: nodejs-express-js/package-lock.json
 
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: java-springboot-js/pom.xml
+
       # views/ and public/ are compiled in with go:embed, so a release is one binary per platform
       # and nothing else has to travel with it. deploy/ ships only with linux: a systemd unit and
       # an nginx snippet mean nothing on a laptop, where these builds are for trying the example.
@@ -119,6 +126,21 @@ jobs:
           tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
           rm -rf "../dist-release/${dir:?}"
 
+      # The pages and the client scripts are packaged into the jar, so like the Go artefact this
+      # one is self-contained — a single file plus deploy/, and a JRE on the target.
+      - name: java-springboot-js
+        working-directory: java-springboot-js
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="hosted-fields-examples-java"
+          dir="${name}_${tag}"
+          ./mvnw -B -DskipTests package
+          mkdir -p "../dist-release/$dir"
+          cp target/hosted-fields-example-java.jar .env.example README.md "../dist-release/$dir/"
+          cp -r deploy "../dist-release/$dir/"
+          tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
+          rm -rf "../dist-release/${dir:?}"
+
       # `output: 'standalone'` gives one server.js plus a minimal node_modules, so this
       # artefact needs nothing but Node 20 either. BASE_PATH is baked in at build time, so the
       # release carries the default prefix — rebuild from source to mount it elsewhere.
@@ -169,6 +191,9 @@ jobs:
             - `hosted-fields-examples-ruby.tar.gz` — the sources with `test/`, `public/`,
               `views/` and `deploy/`. Needs Ruby 3.1+ and a `bundle install` on the target, then
               puma. Note that macOS's system Ruby 2.6 will not run it.
+            - `hosted-fields-examples-java.tar.gz` — one jar with the pages inside it, plus
+              `deploy/`. Needs a JRE 21+ and nothing else: `java -jar
+              hosted-fields-example-java.jar`.
             - `hosted-fields-examples-nextjs.tar.gz` — the standalone Next.js server with
               `public/`, `.next/` and `deploy/`. Needs Node 20+, `node server.js`. The URL
               prefix is compiled in: rebuild from source to change it.
