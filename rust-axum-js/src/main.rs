@@ -313,11 +313,14 @@ async fn result(State(state): State<AppState>, RawQuery(query): RawQuery) -> Res
     // stops a hand-edited URL: without it the page would happily poll somebody else's order. No
     // query at all is fine — the page then says there is nothing to show.
     let query = form_params(query.as_deref().unwrap_or_default());
-    if let Some(order) = query.get("orderid").filter(|order| !order.is_empty())
-        && !control::valid_callback(&query, &state.config.merchant_control)
-    {
-        eprintln!("[error] result signature mismatch for order {order:?}");
-        return (StatusCode::FORBIDDEN, "invalid result signature").into_response();
+    // Nested rather than a let chain: `if let … && …` is unstable before Rust 1.88, and this
+    // crate builds on the 1.85 its Cargo.toml declares. clippy will not ask to collapse these
+    // two, because it reads that same rust-version.
+    if let Some(order) = query.get("orderid").filter(|order| !order.is_empty()) {
+        if !control::valid_callback(&query, &state.config.merchant_control) {
+            eprintln!("[error] result signature mismatch for order {order:?}");
+            return (StatusCode::FORBIDDEN, "invalid result signature").into_response();
+        }
     }
 
     view(&state.config, "result.html")

@@ -3,11 +3,9 @@
 # Two stages, because the artefact is one binary with views/ and public/ inside it
 # (include_dir! in main.rs) — there is nothing else to carry to the runtime image.
 
-# 1.88, not the 1.85 this example declares as its minimum. src/main.rs:317 uses a let chain
-# (`if let Some(..) = .. && ..`), which is unstable before 1.88 — so the crate does not in fact
-# build on the version Cargo.toml and the READMEs name. CI never caught it because it installs
-# whatever `stable` is. Worth fixing at the source; pinned here so this image builds.
-FROM rust:1.88-bookworm AS build
+# The version Cargo.toml declares. It really does build on it — see the comment at the nested
+# `if let` in src/main.rs, which is there so that it does.
+FROM rust:1.85-bookworm AS build
 WORKDIR /src
 COPY . .
 # views/ and public/ have to be present here: include_dir! reads them at compile time
