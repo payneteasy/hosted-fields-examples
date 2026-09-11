@@ -53,6 +53,11 @@ also why `e2e-tests/src/apps.ts` has a `rubyBinary()` locator and puts that ruby
   promise that the same HTML serves from every one of them.
 - **`views/` and `public/` are copies of `shared/`.** Edit `shared/`, run
   `scripts/sync-shared.sh`. CI fails a copy that has drifted.
+- **`Gemfile.lock` has to name every platform a target runs on.** Bundler resolves per platform
+  and refuses to install — exit 16, "your bundle only supports platforms …" — when the lock does
+  not list the one it is on. A lock written on a Mac carries only `arm64-darwin-*`, which fails on
+  a Linux CI and on a Linux server, so the committed one names the linux and darwin platforms plus
+  the generic `ruby`. Re-lock with `bundle lock --add-platform`, never by deleting the file.
 - **The tests run outside the bundle.** minitest is a *bundled* gem, so `bundle exec` hides it
   unless the `Gemfile` names it — and the `Gemfile` should not, because the tests touch no gem at
   all. `ruby test/all.rb`, never `bundle exec ruby test/all.rb`.
