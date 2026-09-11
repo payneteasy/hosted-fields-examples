@@ -1,10 +1,10 @@
 # e2e-tests
 
-End-to-end tests for all three examples, run **locally only**. They are not part of CI: the suite
-needs three toolchains, a browser and a Next.js production build, which is more than
+End-to-end tests for every example, run **locally only**. They are not part of CI: the suite
+needs every toolchain, a browser and a Next.js production build, which is more than
 `.github/workflows/ci.yml` is set up for.
 
-The three examples are supposed to be the same payment written three times. This is what checks
+The examples are supposed to be the same payment written once per language. This is what checks
 that they are.
 
 ## What it fakes
@@ -30,23 +30,23 @@ Two things are verified rather than waved through, so that a green run means som
 
 - **the OAuth 1.0a RSA-SHA256 signature on every server call**, checked against the generated
   public key. This is the only place the bytes actually on the wire are checked — the unit tests
-  in `go-js` and `nodejs-express-js` each check their own signer against a fixed base string, and
-  `nextjs` has no unit test at all;
-- **the `control` checksum on the 3DS return**, because the emulator signs what the three
-  examples verify. A disagreement shows up as a `403`.
+  in `go-js`, `nodejs-express-js` and `php-js` each check their own signer against a fixed base
+  string, and `nextjs` has no unit test at all;
+- **the `control` checksum on the 3DS return**, because the emulator signs what every example
+  verifies. A disagreement shows up as a `403`.
 
 ## Running it
 
 ```bash
 npm install
 npm run browser          # once: downloads Chromium
-npm test                 # all three applications
-npm run test:go          # or test:express / test:nextjs
+npm test                 # every application
+npm run test:go          # or test:express / test:php / test:nextjs
 npm run test:ui          # the Playwright UI, for watching a flow
 ```
 
-Each application is a Playwright **project**, and the specs are written once and run against all
-three — which is the point.
+Each application is a Playwright **project**, and the specs are written once and run against
+every one of them — which is the point.
 
 ## What it covers
 
@@ -64,16 +64,20 @@ behaviour.
 ## Things worth knowing
 
 - **Nothing here touches your `.env` files.** Every setting goes to the apps as a process
-  environment variable, which wins over `.env` in all three, and the Go binary is run from
-  `.tmp/` where there is no `.env` at all.
+  environment variable, which wins over `.env` in all of them, and the Go binary is run from
+  `.tmp/` where there is no `.env` at all. The PHP example has to run from its own directory, so
+  `apps.ts` pins its `BASE_PATH` too — the one setting `gatewayEnv()` does not pass.
 - **`npm test` rebuilds `nextjs/.next`**, because `basePath` is baked in at build time. Do not
   run the suite while `next dev` is live on the same directory.
 - **The Go example is compiled to `.tmp/` and exec'd**, not run with `go run .`: `go run` leaves
   the compiled binary behind as a grandchild that keeps holding the port. Set `GO_BIN` if your Go
   is not at `~/opt/go/bin/go` or on `PATH`.
+- **The PHP example is served by `php -S`**, which takes the port on the command line and
+  handles one request at a time. The flow is sequential, so that is not a problem here; a test
+  that seems to hang on `php-js` is worth reading as a request waiting behind another one.
 - **The RSA key is generated, never committed** — into `.tmp/`, once, and reused.
-- **Ports 4010-4013** are used so your own servers on 3000-3002 can keep running. If a run ends
-  strangely, `lsof -ti tcp:4010,4011,4012,4013 | xargs kill`.
+- **Ports 4010-4014** are used so your own servers on 3000-3003 can keep running. If a run ends
+  strangely, `lsof -ti tcp:4010,4011,4012,4013,4014 | xargs kill`.
 - `E2E_VERIFY_OAUTH=0` turns off signature verification, which is worth doing only to find out
   whether a failure is the application's or this harness's.
 

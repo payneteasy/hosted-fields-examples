@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Local end-to-end tests: the three examples driven through a browser against a fake gateway",
+  "description": "Local end-to-end tests: every example driven through a browser against a fake gateway",
   "engines": {
     "node": ">=22.18"
   },
@@ -11,6 +11,7 @@
     "test": "playwright test",
     "test:go": "playwright test --project=go-js",
     "test:express": "playwright test --project=nodejs-express-js",
+    "test:php": "playwright test --project=php-js",
     "test:nextjs": "playwright test --project=nextjs",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",
