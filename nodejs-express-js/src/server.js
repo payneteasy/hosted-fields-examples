@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -19,16 +19,18 @@ app.use(express.json());
 // The gateway posts the 3DS return as a form
 app.use(express.urlencoded({ extended: false }));
 
-// Anchored to the real line: the comment above it names the placeholder too, and
-// a plain replace() would substitute that one instead. (Go strips HTML comments,
-// so its copy never hits this.)
-const CONFIG_LINE = /^ {2}<script>window\.CONFIG = __CONFIG__;<\/script>$/m;
-
-function renderPage(name, config) {
-  const page = readFileSync(join(viewsDir, name), 'utf8');
-  if (!CONFIG_LINE.test(page)) throw new Error(`${name} has no config injection line`);
-  return page.replace(CONFIG_LINE, `  <script>window.CONFIG = ${JSON.stringify(config)};</script>`);
+// window.CONFIG as a script of its own: the only thing this server generates. Everything in
+// views/ is served exactly as it is written, which is what lets those files be identical
+// whatever language the example is in.
+function sendConfigJS(res, config) {
+  res
+    .type('text/javascript')
+    // The ticket inside is single-use, so this must never come from a cache
+    .set('Cache-Control', 'no-store')
+    .send(`window.CONFIG = ${JSON.stringify(config)};\n`);
 }
+
+const sendView = (res, name) => res.sendFile(join(viewsDir, name));
 
 // The gateway wants a plain address for fraud screening, not an IPv6-mapped loopback
 function clientIp(req) {
@@ -37,23 +39,35 @@ function clientIp(req) {
   return ip.startsWith('::ffff:') ? ip.slice(7) : ip;
 }
 
-// Payment page. A fresh ephemeralTicket is issued per page load: it is single-use.
-router.get('/', async (req, res, next) => {
+router.get('/', (req, res) => sendView(res, 'checkout.html'));
+
+// Step 1. A fresh ephemeralTicket per page load: it is single-use.
+router.get('/config.js', async (req, res) => {
+  const config = {
+    basePath: BASE_PATH,
+    sdkUrl: SDK_URL,
+    endpointId: ENDPOINT_ID,
+    // The page shows what the server will actually charge
+    amount: ORDER_AMOUNT,
+    currency: ORDER_CURRENCY,
+  };
+
   try {
-    const config = {
-      basePath: BASE_PATH,
-      sdkUrl: SDK_URL,
-      endpointId: ENDPOINT_ID,
-      ephemeralTicket: await getEphemeralTicket(),
-      // The page shows what the server will actually charge
-      amount: ORDER_AMOUNT,
-      currency: ORDER_CURRENCY,
-    };
-    res.type('html').send(renderPage('checkout.html', config));
+    config.ephemeralTicket = await getEphemeralTicket();
   } catch (error) {
-    next(error);
+    // This has to stay valid JavaScript whatever happened upstream, or the page cannot even
+    // tell the payer that it did. checkout.js reads the absent ticket as terminal.
+    console.error('[error]', error.message);
+    config.error = error.message;
   }
+
+  sendConfigJS(res, config);
 });
+
+// The 3DS return page needs no ticket: there is no card on it to tokenize.
+router.get('/result-config.js', (req, res) =>
+  sendConfigJS(res, { basePath: BASE_PATH, amount: ORDER_AMOUNT, currency: ORDER_CURRENCY }),
+);
 
 // Step 3. The page sends the hostedFieldsToken here, the server initiates the payment.
 router.post('/pay', async (req, res, next) => {
@@ -91,33 +105,58 @@ router.get('/status', async (req, res, next) => {
   }
 });
 
-// The checksum the gateway signs its callbacks with
+// The parameters the gateway signs its callback with, in the order the page wants them back
+const SIGNED_CALLBACK_FIELDS = ['status', 'orderid', 'merchant_order', 'control'];
+
+// The checksum the gateway signs its callbacks with. Takes a form body or a query string:
+// the same values travel on to /result, and are checked again there.
 // https://doc.payneteasy.com/integration/API_commands/merchant_callback_parameters.html
-function validCallback({ status = '', orderid = '', merchant_order = '', control = '' }) {
-  const expected = createHash('sha1').update(`${status}${orderid}${merchant_order}${MERCHANT_CONTROL}`).digest('hex');
+function validCallback(source) {
+  const field = (name) => String(source[name] ?? '');
+  const expected = createHash('sha1')
+    .update(field('status') + field('orderid') + field('merchant_order') + MERCHANT_CONTROL)
+    .digest('hex');
+  const control = field('control');
   return control.length === expected.length && timingSafeEqual(Buffer.from(control), Buffer.from(expected));
 }
 
-// Where the payer lands after a 3DS challenge. The gateway returns the payer with a
-// POST whose parameters are signed, so the order is taken from there — the browser is
-// never asked to carry it across the redirect.
-router.all('/result', (req, res) => {
-  const page = { basePath: BASE_PATH, amount: ORDER_AMOUNT, currency: ORDER_CURRENCY };
-
-  if (req.method === 'POST') {
-    if (!validCallback(req.body)) {
-      console.error('[error] callback signature mismatch for order', req.body.orderid);
-      return res.status(403).type('text').send('invalid callback signature');
-    }
-    // The callback carries the outcome too, but the documentation says not to treat it
-    // as the status — the order is looked up over the API instead.
-    page.orderId = req.body.orderid;
-    page.clientOrderId = req.body.merchant_order;
-  } else if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return res.sendStatus(405);
+function resultUrl(callback) {
+  const signed = new URLSearchParams();
+  for (const name of SIGNED_CALLBACK_FIELDS) {
+    if (callback[name]) signed.set(name, String(callback[name]));
   }
+  const query = signed.toString();
+  return `${BASE_PATH}/result${query ? `?${query}` : ''}`;
+}
 
-  res.type('html').send(renderPage('result.html', page));
+// Step 5. Where the gateway returns the payer after a 3DS challenge, with a POST. It is not a
+// page, because a page cannot be delivered by POST and still be reloadable: the signature is
+// checked here and the payer is sent on to /result with the same signed parameters in the
+// query. The browser carries them, but it cannot forge them — it does not know
+// MERCHANT_CONTROL — and /result checks them again before it serves anything.
+router.post('/result/callback', (req, res) => {
+  if (!validCallback(req.body)) {
+    console.error('[error] callback signature mismatch for order', req.body.orderid);
+    return res.status(403).type('text').send('invalid callback signature');
+  }
+  // 303, so the browser follows with a GET whatever it arrived with
+  res.redirect(303, resultUrl(req.body));
+});
+
+// A GET here is nobody arriving from a payment; send them to the empty page.
+router.get('/result/callback', (req, res) => res.redirect(303, resultUrl({})));
+
+// The 3DS return page. The callback carries the outcome too, but the documentation says not to
+// treat it as the status — the page looks the order up over the API instead.
+router.get('/result', (req, res) => {
+  // The query is only there when the payer came through the callback. Rechecking it here is
+  // what stops a hand-edited URL: without it the page would happily poll somebody else's
+  // order. No query at all is fine — the page then says there is nothing to show.
+  if (req.query.orderid && !validCallback(req.query)) {
+    console.error('[error] result signature mismatch for order', req.query.orderid);
+    return res.status(403).type('text').send('invalid result signature');
+  }
+  sendView(res, 'result.html');
 });
 
 router.use(express.static(publicDir));

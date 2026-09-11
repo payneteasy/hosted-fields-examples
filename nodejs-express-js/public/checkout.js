@@ -1,4 +1,6 @@
 // Hosted Fields payment page: create the card fields, tokenize, pay, follow the order.
+// SHARED FILE. The source of truth is shared/public/checkout.js; the copy in every app is
+// written by scripts/sync-shared.sh. Edit it there, run the script, commit both.
 
 var CONFIG = window.CONFIG;
 /* The seam, resolved once from CSS ----------------------------------------
@@ -191,12 +193,17 @@ var ERROR_COPY = {
   retry: 'Your card was declined by the issuing bank. Check the number, expiry and CVV, or try another card.',
   rejected: 'That card number was not accepted. Check the digits, then reload the page to start a new payment.',
   spent: 'This payment session has already been used. Reload the page to try again.',
-  network: 'We could not reach the payment gateway. Check your connection and try again.'
+  network: 'We could not reach the payment gateway. Check your connection and try again.',
+  unavailable: 'This page could not be prepared for a payment. Reload it to try again.'
 };
 
-/* Errors that burn the ephemeralTicket: the button cannot come back, because a
-   retry would need a ticket this page no longer has. */
-var TERMINAL_ERRORS = { rejected: 'Reload to try again', spent: 'Payment session closed' };
+/* Errors the button cannot come back from. Two of them burn the ephemeralTicket, so a retry
+   would need one this page no longer has; `unavailable` means the page never got one at all. */
+var TERMINAL_ERRORS = {
+  rejected: 'Reload to try again',
+  spent: 'Payment session closed',
+  unavailable: 'Reload to try again'
+};
 
 function showFormError(kind, message) {
   var box = document.getElementById('formError');
@@ -385,12 +392,26 @@ function customerDetails() {
 setOrderSummary();
 watchCardholderName();
 
-// The SDK must be loaded from the gateway host with a classic script tag.
-var script = document.createElement('script');
-script.src = CONFIG.sdkUrl;
-script.async = true;
-script.onerror = function () { showFormError('network', 'Failed to load the Hosted Fields SDK.'); };
-document.head.appendChild(script);
+/* config.js is the one generated file on this page. When the gateway call behind it failed
+   there is no ticket, so there is nothing to tokenize with: say so, and do not load an SDK
+   that could not be used anyway. Both cases are terminal — only a reload can produce a new
+   ticket — so the button stays dead rather than inviting a click that cannot work. */
+if (!CONFIG.ephemeralTicket) {
+  // The reason is for the log, the way error.message is: what the payer is shown says what
+  // they can do about it, and "fetch failed" does not.
+  console.error('[HostedFields] no ephemeralTicket: ' + (CONFIG.error || 'reason unknown'));
+  showFormError('unavailable');
+} else {
+  // The SDK must be loaded from the gateway host with a classic script tag.
+  var script = document.createElement('script');
+  script.src = CONFIG.sdkUrl;
+  script.async = true;
+  script.onerror = function () {
+    console.error('[HostedFields] the SDK bundle failed to load from ' + CONFIG.sdkUrl);
+    showFormError('unavailable');
+  };
+  document.head.appendChild(script);
+}
 
 // Step 2. The ids of the containers double as the keys of the fields map.
 window.onHostedFieldsReady = function (HostedFields) {

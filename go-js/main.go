@@ -6,7 +6,6 @@ import (
 	"embed"
 	"encoding/hex"
 	"encoding/json"
-	"html/template"
 	"io/fs"
 	"log"
 	"net"
@@ -19,8 +18,6 @@ import (
 
 //go:embed views public
 var assets embed.FS
-
-var pages = template.Must(template.ParseFS(assets, "views/*.html"))
 
 func main() {
 	var err error
@@ -35,13 +32,19 @@ func main() {
 
 	// Every route lives under BASE_PATH, so several examples fit behind one nginx.
 	mux := http.NewServeMux()
+	// The two pages are static files: the only thing this server generates is window.CONFIG,
+	// and it hands that over as a script of its own. That is what lets views/ be identical
+	// whatever language the example is written in.
 	mux.HandleFunc("GET "+cfg.BasePath+"/{$}", handleCheckout)
+	mux.HandleFunc("GET "+cfg.BasePath+"/config.js", handleConfigJS)
+	mux.HandleFunc("GET "+cfg.BasePath+"/result-config.js", handleResultConfigJS)
 	mux.HandleFunc("POST "+cfg.BasePath+"/pay", handlePay)
 	mux.HandleFunc("GET "+cfg.BasePath+"/status", handleStatus)
-	// The gateway returns the payer from a 3DS challenge with a POST, not a GET,
-	// so both methods have to be accepted here.
+	// The gateway returns the payer from a 3DS challenge with a POST, not a GET, so the
+	// callback and the page it sends them to are separate routes.
+	mux.HandleFunc("POST "+cfg.BasePath+"/result/callback", handleResultCallback)
+	mux.HandleFunc("GET "+cfg.BasePath+"/result/callback", handleResultCallback)
 	mux.HandleFunc("GET "+cfg.BasePath+"/result", handleResult)
-	mux.HandleFunc("POST "+cfg.BasePath+"/result", handleResult)
 	// Stylesheet and client scripts. Registering the subtree also makes the mux
 	// redirect a request for the bare prefix to the trailing-slash form, which
 	// keeps the relative asset URLs on the payment page working.
@@ -52,27 +55,38 @@ func main() {
 	log.Fatal(http.ListenAndServe(address, mux))
 }
 
-// Step 1. A fresh single-use ticket for every page load, embedded into the page.
-func handleCheckout(w http.ResponseWriter, r *http.Request) {
-	ticket, err := getEphemeralTicket()
-	if err != nil {
-		fail(w, err)
-		return
-	}
+func handleCheckout(w http.ResponseWriter, r *http.Request) { serveView(w, "checkout.html") }
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = pages.ExecuteTemplate(w, "checkout.html", map[string]string{
-		"basePath":        cfg.BasePath,
-		"sdkUrl":          cfg.SDKURL,
-		"endpointId":      cfg.EndpointID,
-		"ephemeralTicket": ticket,
+// Step 1. A fresh single-use ticket for every page load, handed to the page as a script.
+func handleConfigJS(w http.ResponseWriter, r *http.Request) {
+	config := map[string]string{
+		"basePath":   cfg.BasePath,
+		"sdkUrl":     cfg.SDKURL,
+		"endpointId": cfg.EndpointID,
 		// The page shows what the server will actually charge
 		"amount":   cfg.OrderAmount,
 		"currency": cfg.OrderCurrency,
-	})
-	if err != nil {
-		log.Printf("[error] %v", err)
 	}
+
+	if ticket, err := getEphemeralTicket(); err == nil {
+		config["ephemeralTicket"] = ticket
+	} else {
+		// This has to stay valid JavaScript whatever happened upstream, or the page cannot
+		// even tell the payer that it did. checkout.js reads the absent ticket as terminal.
+		log.Printf("[error] %v", err)
+		config["error"] = err.Error()
+	}
+
+	writeConfigJS(w, config)
+}
+
+// The 3DS return page needs no ticket: there is no card on it to tokenize.
+func handleResultConfigJS(w http.ResponseWriter, r *http.Request) {
+	writeConfigJS(w, map[string]string{
+		"basePath": cfg.BasePath,
+		"amount":   cfg.OrderAmount,
+		"currency": cfg.OrderCurrency,
+	})
 }
 
 // Step 3. The browser has exchanged the card for a token; start the payment.
@@ -127,36 +141,71 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, status)
 }
 
-// Step 5. Where the payer lands after a 3DS challenge. The gateway returns the
-// payer with a POST whose parameters are signed, so the order is taken from
-// there — the browser is never asked to carry it across the redirect.
-func handleResult(w http.ResponseWriter, r *http.Request) {
-	page := map[string]string{
-		"basePath": cfg.BasePath,
-		"amount":   cfg.OrderAmount,
-		"currency": cfg.OrderCurrency,
-	}
+// The parameters the gateway signs its callback with, in the order the page wants them back.
+var signedCallbackFields = []string{"status", "orderid", "merchant_order", "control"}
 
+// Step 5. Where the gateway returns the payer after a 3DS challenge, with a POST. It is not a
+// page, because a page cannot be delivered by POST and still be reloadable: the signature is
+// checked here and the payer is sent on to /result with the same signed parameters in the
+// query. The browser carries them, but it cannot forge them — it does not know
+// MERCHANT_CONTROL — and /result checks them again before it serves anything.
+func handleResultCallback(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "malformed callback", http.StatusBadRequest)
+		return
+	}
+	// A GET here is nobody arriving from a payment; send them to the empty page.
 	if r.Method == http.MethodPost {
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, "malformed callback", http.StatusBadRequest)
-			return
-		}
 		if !validCallback(r.PostForm) {
 			log.Printf("[error] callback signature mismatch for order %q", r.PostForm.Get("orderid"))
 			http.Error(w, "invalid callback signature", http.StatusForbidden)
 			return
 		}
-		// The callback carries the outcome too, but the documentation says not to
-		// treat it as the status — the order is looked up over the API instead.
-		page["orderId"] = r.PostForm.Get("orderid")
-		page["clientOrderId"] = r.PostForm.Get("merchant_order")
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := pages.ExecuteTemplate(w, "result.html", page); err != nil {
-		log.Printf("[error] %v", err)
+	// Built by hand rather than with url.Values.Encode, which sorts: every example puts these
+	// in the same order, so the URL the payer ends up on is the same one everywhere.
+	signed := make([]string, 0, len(signedCallbackFields))
+	for _, name := range signedCallbackFields {
+		if value := r.PostForm.Get(name); value != "" {
+			signed = append(signed, url.QueryEscape(name)+"="+url.QueryEscape(value))
+		}
 	}
+
+	target := cfg.BasePath + "/result"
+	if len(signed) > 0 {
+		target += "?" + strings.Join(signed, "&")
+	}
+	// 303, so the browser follows with a GET whatever it arrived with
+	http.Redirect(w, r, target, http.StatusSeeOther)
+}
+
+// The 3DS return page. The callback carries the outcome too, but the documentation says not to
+// treat it as the status — the page looks the order up over the API instead.
+func handleResult(w http.ResponseWriter, r *http.Request) {
+	// The query is only there when the payer came through the callback. Rechecking it here is
+	// what stops a hand-edited URL: without it the page would happily poll somebody else's
+	// order. No query at all is fine — the page then says there is nothing to show.
+	query := r.URL.Query()
+	if query.Get("orderid") != "" && !validCallback(query) {
+		log.Printf("[error] result signature mismatch for order %q", query.Get("orderid"))
+		http.Error(w, "invalid result signature", http.StatusForbidden)
+		return
+	}
+
+	serveView(w, "result.html")
+}
+
+// Both pages are served straight out of the embedded files, with nothing substituted into them.
+func serveView(w http.ResponseWriter, name string) {
+	page, err := assets.ReadFile("views/" + name)
+	if err != nil {
+		log.Printf("[error] %v", err)
+		http.Error(w, "page not found", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(page)
 }
 
 // validCallback checks the checksum the gateway signs its callbacks with:
@@ -196,6 +245,20 @@ func header(r *http.Request, name, fallback string) string {
 func fail(w http.ResponseWriter, err error) {
 	log.Printf("[error] %v", err)
 	writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+}
+
+// window.CONFIG as a script of its own: the only thing this server generates.
+func writeConfigJS(w http.ResponseWriter, config map[string]string) {
+	body, err := json.Marshal(config)
+	if err != nil {
+		log.Printf("[error] %v", err)
+		http.Error(w, "could not build the page config", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+	// The ticket inside is single-use, so this must never come from a cache
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write([]byte("window.CONFIG = " + string(body) + ";\n"))
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

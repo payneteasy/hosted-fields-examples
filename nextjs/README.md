@@ -48,7 +48,7 @@ by the server component, which is the React shape of the `window.CONFIG` the oth
 | 2 | browser | the SDK creates the `pan` / `exp` / `cvv` iframes; `sdk.tokenize(ticket)` exchanges the card for a `hostedFieldsToken` |
 | 3 | `POST {prefix}/pay` | the server sends a Sale (`/api/v4/sale/`) with `hosted_fields_token` instead of the card parameters |
 | 4 | `GET {prefix}/status` | the page polls the order status (`/api/v4/status/`) every 4 seconds until a final status |
-| 5 | `POST {prefix}/result/callback` | where the gateway returns the payer after a 3DS challenge; the `control` checksum is verified, then a 303 to `{prefix}/result` |
+| 5 | `POST {prefix}/result/callback` | where the gateway returns the payer after a 3DS challenge; the `control` checksum is verified, then a 303 to `{prefix}/result` with the same signed parameters |
 | 6 | `GET {prefix}/result` | the return page, which polls the order the callback carried |
 
 ## The 3DS return
@@ -63,12 +63,15 @@ control = sha1(status + orderid + merchant_order + MERCHANT_CONTROL)
 An App Router page cannot serve a POST, and a `page.tsx` and a `route.ts` cannot share a path.
 So `redirect_url` points one level deeper, at
 [`result/callback/route.ts`](src/app/result/callback/route.ts), which recomputes that checksum,
-answers `403` when it does not match, and otherwise puts the verified order into a short-lived
-`httpOnly` cookie and answers `303` to `{prefix}/result`. The page then reads the cookie.
+answers `403` when it does not match, and otherwise answers `303` to `{prefix}/result` carrying
+the same four signed parameters in the query.
+[`result/page.tsx`](src/app/result/page.tsx) checks them **again** before it shows an order.
 
-The point of the detour is the same one [`go-js/main.go`](../go-js/main.go) is making: the order
-identifiers the page polls with come from the gateway's signed callback, never from the
-browser's URL. Nothing is kept in `sessionStorage`. The callback carries the outcome too, but
+That second check is what makes carrying them in the URL safe: the browser cannot forge them,
+because it does not know `MERCHANT_CONTROL`. One difference from the other examples — a React
+page cannot set a status code without the experimental `forbidden()`, so a failed check renders
+the empty page rather than a `403`. Refusing to show the order is the part that matters.
+Nothing is kept in `sessionStorage`. The callback carries the outcome too, but
 [the documentation](https://doc.payneteasy.com/integration/API_commands/merchant_callback_parameters.html)
 says not to treat it as the status — the page asks the status API instead.
 
@@ -94,8 +97,10 @@ each site:
 
 ## The stylesheet
 
-[`public/styles.css`](public/styles.css) is **byte-for-byte identical** to
-`go-js/public/styles.css` and `nodejs-express-js/public/styles.css`, and CI fails if it drifts.
+[`public/styles.css`](public/styles.css) is a copy of [`shared/public/styles.css`](../shared/public/styles.css),
+written by [`scripts/sync-shared.sh`](../scripts/sync-shared.sh) — edit it there, not here, and
+CI fails a copy that has drifted. It is the one file this example shares with the other two;
+the scripts and the views are components instead.
 It is referenced with a plain `<link>` from [`layout.tsx`](src/app/layout.tsx) rather than
 imported, so no build step can touch it. Biome is told to leave it alone for the same reason.
 

@@ -6,6 +6,10 @@ the card fields are iframes served by the payment gateway, so no card data ever 
 Everything is mounted under a single URL prefix (`BASE_PATH`), so several such examples can live behind one nginx.
 The standard library is the only dependency, and the pages and client scripts are embedded into the binary.
 
+The browser half is not written here: it lives in [`shared/`](../shared/) and
+[`scripts/sync-shared.sh`](../scripts/sync-shared.sh) copies it into `public/` and `views/`.
+Edit it there, run the script, commit both — CI fails a copy that has drifted.
+
 ## Run
 
 ```bash
@@ -29,11 +33,13 @@ with escaped `\n`.
 
 | # | Where | What |
 | - | ----- | ---- |
-| 1 | `GET {prefix}/` | the server obtains a single-use `ephemeralTicket` (`/api/v4/tokenize/create-ephemeral-ticket/`) and embeds it into the page |
-| 2 | browser | the SDK creates the `pan` / `exp` / `cvv` iframes; `sdk.tokenize(ticket)` exchanges the card for a `hostedFieldsToken` |
-| 3 | `POST {prefix}/pay` | the server sends a Sale (`/api/v4/sale/`) with `hosted_fields_token` instead of the card parameters |
-| 4 | `GET {prefix}/status` | the page polls the order status (`/api/v4/status/`) every 4 seconds until a final status |
-| 5 | `GET`/`POST {prefix}/result` | where the payer lands after a 3DS challenge; the gateway returns them with a POST, whose `control` checksum is verified before the page renders |
+| 1 | `GET {prefix}/` | `views/checkout.html`, served exactly as it is on disk |
+| 2 | `GET {prefix}/config.js` | `window.CONFIG`, carrying a single-use `ephemeralTicket` (`/api/v4/tokenize/create-ephemeral-ticket/`) — the one thing this server generates |
+| 3 | browser | the SDK creates the `pan` / `exp` / `cvv` iframes; `sdk.tokenize(ticket)` exchanges the card for a `hostedFieldsToken` |
+| 4 | `POST {prefix}/pay` | the server sends a Sale (`/api/v4/sale/`) with `hosted_fields_token` instead of the card parameters |
+| 5 | `GET {prefix}/status` | the page polls the order status (`/api/v4/status/`) every 4 seconds until a final status |
+| 6 | `POST {prefix}/result/callback` | where the gateway returns the payer after a 3DS challenge, with a POST whose `control` checksum is verified |
+| 7 | `GET {prefix}/result` | the return page, and `{prefix}/result-config.js` beside it |
 
 ## The 3DS return
 
@@ -44,8 +50,14 @@ parameters:
 control = sha1(status + orderid + merchant_order + MERCHANT_CONTROL)
 ```
 
-`/result` recomputes that checksum and answers `403` when it does not match, so the order
-identifiers the page then polls with come from the gateway rather than from the browser.
+A page cannot be delivered by POST and still be reloadable, so `redirect_url` points at
+`/result/callback`, which recomputes that checksum, answers `403` when it does not match, and
+otherwise sends a `303` to `/result` carrying the same four signed parameters in the query.
+`/result` checks them **again** before it serves anything.
+
+That second check is the whole trick. The browser carries the identifiers, but it cannot forge
+them — it does not know `MERCHANT_CONTROL` — so a hand-edited URL gets a `403` rather than a
+page that polls somebody else's order, and the server keeps no state between the two requests.
 Nothing is kept in `sessionStorage`. The callback also carries the outcome, but
 [the documentation](https://doc.payneteasy.com/integration/API_commands/merchant_callback_parameters.html)
 says not to treat it as the status — the page asks the status API instead.
@@ -122,7 +134,7 @@ one more pair of `location` blocks.
 config.go     environment variables
 oauth.go      OAuth 1.0a RSA-SHA256 signing
 paynet.go     the three gateway calls
-main.go       routes under BASE_PATH
-views/        payment page, 3DS return page
-public/       stylesheet and client scripts
+main.go       routes under BASE_PATH, and the generated config.js
+views/        payment page, 3DS return page   — copies of shared/, do not edit
+public/       stylesheet and client scripts   — copies of shared/, do not edit
 ```

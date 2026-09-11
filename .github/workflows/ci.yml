@@ -74,29 +74,17 @@ jobs:
       - run: yarn build
 
   shared:
-    # The premise of this repository is that the browser half does not depend on the server, so
-    # the copies of it have to be identical. Kept honest here rather than by remembering.
+    # The premise of this repository is that the browser half does not depend on the server.
+    # shared/ is the source of truth and scripts/sync-shared.sh copies it into every app; the
+    # copies are committed so each directory still runs on its own. Running the script here and
+    # failing on a diff is what keeps "I forgot to sync" from reaching main — and it needs no
+    # per-file list, so a new app costs one line in the script and nothing here.
     name: shared frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: the stylesheet is identical in all three apps
-        # The React example cannot share the scripts or the views, but it serves this very
-        # file, so the design cannot drift away from the other two.
+      - name: every copy matches shared/
         run: |
-          for app in nodejs-express-js nextjs; do
-            diff go-js/public/styles.css "$app/public/styles.css"
-          done
-
-      - name: the scripts and views are identical in the two plain-JS apps
-        run: |
-          for f in public/status.js public/checkout.js; do
-            diff "go-js/$f" "nodejs-express-js/$f"
-          done
-          # The views differ by one line on purpose: each server injects the config with its own
-          # template syntax. Blank that line out and the rest must match exactly.
-          for f in views/checkout.html views/result.html; do
-            diff <(sed 's/window\.CONFIG = .*/window.CONFIG = INJECTED;/' "go-js/$f") \
-                 <(sed 's/window\.CONFIG = .*/window.CONFIG = INJECTED;/' "nodejs-express-js/$f")
-          done
+          ./scripts/sync-shared.sh
+          git diff --exit-code

@@ -1,4 +1,6 @@
 // Order status polling, shared by the payment page and the 3DS return page.
+// SHARED FILE. The source of truth is shared/public/status.js; the copy in every app is
+// written by scripts/sync-shared.sh. Edit it there, run the script, commit both.
 
 var FINAL_STATUSES = ['approved', 'declined', 'error', 'filtered'];
 var POLL_INTERVAL = 4000;
