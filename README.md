@@ -140,8 +140,12 @@ correct, which nothing else does.
 
 It is a demo and not a deployment: plain HTTP on a local port. The first build is slow — it
 compiles Rust, packages a Spring Boot jar and runs `next build`. Set `HTTP_PORT` in `.env` if
-something already has 8080, and restart the stack rather than one service — every app shares the
-nginx container's network namespace, which is what lets the shipped snippets be used unchanged.
+something already has 8080 — it drives the published port, nginx's own and `PUBLIC_URL` at once —
+and restart the stack rather than one service, because every app shares the nginx container's
+network namespace, which is what lets the shipped snippets be used unchanged.
+
+This stack has a second job: it is also what `e2e-tests/` can run its browser tests against, so
+checking an example end to end needs Docker and no toolchain at all. See below.
 
 ## Run one on its own
 
@@ -298,13 +302,23 @@ drives a real browser through the payment.
 ```bash
 cd e2e-tests
 npm install && npm run browser   # once
-npm test
+
+npm test                         # starts each app itself — needs its toolchain
 npm run test:dotnet              # .NET is asked for by name, not part of `npm test`
+
+npm run test:docker              # the same specs against the compose stack — all nine
+npm run test:docker:java         # or one of them, by its short name
 ```
 
-It runs locally only, not in CI, and it needs every toolchain. The signatures and the 3DS
-checksum are verified rather than accepted, so a green run means the whole handshake works and
-not just that a page rendered. See [`e2e-tests/README.md`](e2e-tests/README.md).
+The two ways run the same specs against the same fake gateway; what differs is where the
+applications come from. Natively Playwright starts each one, which is why a run needs that
+toolchain installed and why .NET is opt-in. Against the containers there is nothing to install but
+Docker, so all nine run — including .NET — and the stack comes up and goes down with the run,
+under its own project name so a demo stack on `:8080` is left alone.
+
+It runs locally only, not in CI. The signatures and the 3DS checksum are verified rather than
+accepted, so a green run means the whole handshake works and not just that a page rendered. See
+[`e2e-tests/README.md`](e2e-tests/README.md).
 
 ## Documentation
 
