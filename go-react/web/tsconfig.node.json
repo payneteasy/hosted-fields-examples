@@ -1,0 +1,18 @@
+{
+  /* Everything that runs in Node rather than in a browser, which in this project is one file:
+     the Rsbuild configuration. It is the only place `process` may be named. */
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "types": ["node"]
+  },
+  "include": ["rsbuild.config.ts", "steiger.config.ts"]
+}

@@ -26,9 +26,11 @@ PLAIN_JS_APPS=(
 )
 
 # React: the scripts and the views are components there, so only the stylesheet is shared.
-# That one file is what keeps every example looking identical.
+# That one file is what keeps every example looking identical. go-react/web is the browser
+# half of the Go + React example, which is a project of its own inside that app.
 STYLESHEET_ONLY_APPS=(
   nextjs
+  go-react/web
 )
 
 for app in "${PLAIN_JS_APPS[@]}"; do

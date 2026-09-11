@@ -1,8 +1,8 @@
 # Hosted Fields examples
 
-Ten merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
+Eleven merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
 `python-flask-js/`, `ruby-sinatra-js/`, `java-springboot-js/`, `kotlin-ktor-js/`,
-`rust-axum-js/`, `dotnet-aspnetcore-js/` and `nextjs/`.
+`rust-axum-js/`, `dotnet-aspnetcore-js/`, `nextjs/` and `go-react/`.
 They exist to be read, so clarity beats cleverness everywhere in this repository.
 
 ## The rule that breaks most often
@@ -20,8 +20,8 @@ frontend change is therefore: **edit `shared/`, run `scripts/sync-shared.sh`, co
 Never edit a copy — the script overwrites it, and CI runs the script and then
 `git diff --exit-code`, so forgetting cannot reach main.
 
-`nextjs/` takes only `styles.css`: its scripts and views are React components. That one file is
-what keeps every example looking identical.
+`nextjs/` and `go-react/web/` take only `styles.css`: their scripts and views are React
+components. That one file is what keeps every example looking identical.
 
 There are no exceptions and no per-app lines. Nothing in `views/` is templated — see below.
 
@@ -64,6 +64,10 @@ Four things about it are load-bearing:
 props from the server component, so it has no `config.js` and no `result-config.js`. Everything
 below those rows it implements exactly as written.
 
+`go-react/` is React too and is no exception at all — a single-page application is served a
+`config.js` like anybody else. The only difference is that its two pages are written by a
+bundler rather than copied out of `shared/views/`, and they are still served byte for byte.
+
 ## English only
 
 Code, comments, documentation, commit messages, anything on screen. No Cyrillic anywhere in the
@@ -88,10 +92,11 @@ of properties; the outside is the container div and is yours.
 State arrives as classes the SDK toggles on the container — `hf-field--focus`, `hf-field--filled`,
 `hf-field--error` — because `:focus-within` does not cross an origin boundary.
 
-## React, in `nextjs/` only
+## React, in `nextjs/` and `go-react/`
 
 The SDK injects an iframe into each container and toggles classes on it; React owns the same
-elements. Four rules, each explained where it is enforced:
+elements. Four rules, each explained where it is enforced — the first three in both apps, the
+fourth only where there is a build to validate settings at:
 
 - the containers render **no children** and their `className` is a **constant** — React leaves
   foreign DOM alone, but it rewrites an attribute whose rendered value changed, which would
@@ -101,7 +106,8 @@ elements. Four rules, each explained where it is enforced:
 - `sdk.setStyle()` is pushed for all three fields on **every** theme change, after the
   `data-theme` attribute is on `<html>`;
 - settings are validated **lazily**, not at module import: `next build` imports the route
-  modules, and CI builds without credentials.
+  modules, and CI builds without credentials. `go-react/` has no such hazard — its settings are
+  Go's, read once in `loadConfig`, and its bundle is told nothing at build time at all.
 
 ## PHP, in `php-js/` only
 
@@ -280,6 +286,46 @@ keeps the Go example's property that the integration needs nothing but the stand
 under `tests/` is the only exception and is not published. `X-Forwarded-For` is read by hand, five
 lines, taking the **first** element, as every example but the axum one does.
 
+## Go + React, in `go-react/` only
+
+The server is `go-js/`'s, near enough to diff, and that is the point: the one variable this
+example changes is the browser half. Everything it adds is in `web/`, a single-page application
+of its own, and the boundary between the two is a directory line. Four rules, each explained
+where it is enforced:
+
+- **the asset handler is an allowlist, and `result.html` is not in it.** `go-js` hands the whole
+  of `public/` to `http.FileServerFS` because its pages live in `views/`; here both pages are
+  build output and sit in `web/dist` beside the bundle, so a file server over that directory
+  would serve `{prefix}/result.html` and walk straight past the checksum check that
+  `GET {prefix}/result` performs. `handleAsset` serves `styles.css` and `static/` and 404s the
+  rest — the same allowlist Sinatra, Spring Boot, Ktor and ASP.NET Core keep — and registering it
+  on the subtree is what keeps the mux's bare-prefix `301`, which the relative asset URLs need.
+  The name is `path.Clean`ed before it is checked, because the mux redirects a literal `..` but
+  leaves `%2e%2e` alone; `asset_test.go` is that case;
+- **`BASE_PATH` stays a runtime setting.** `output.assetPrefix` is `'./'` and the pages reach the
+  server only through `window.CONFIG.basePath`, so one `web/dist` serves under any prefix. That
+  is the property `nextjs/` cannot have — `next build` bakes its `basePath` in, which is why its
+  Dockerfile takes a build argument, its compose service repeats the value and its e2e entry
+  rebuilds — and anything that writes the prefix into the bundle takes it away;
+- **nothing from the environment reaches the bundle.** No `PUBLIC_*` inlining and no settings
+  module imported at build time: everything the browser is told arrives at runtime in
+  `config.js`, still the only generated thing. `process` is not even nameable under `web/src`,
+  because `tsconfig.json` sets `"types": []` and only `tsconfig.node.json` adds `node`, for
+  `rsbuild.config.ts` — the one file in the project that runs in Node;
+- **no inline `<script>` and no inline `style=` survives the build.** `output.inlineScripts` and
+  `inlineStyles` stay off and the two templates in `web/src/app/` carry no script of their own
+  but `config.js`, because the server's policy has no `'unsafe-inline'` and nothing here is
+  templated. The visible consequence is that the theme is applied by `applyStoredTheme()` at the
+  top of each entry module rather than by an inline script in `<head>`, the way `nextjs/` can
+  because Next mints a nonce per request.
+
+**`web/dist` is build output, and only `web/dist/.gitkeep` is committed** — `//go:embed` needs
+the directory to exist in a fresh clone, and `cleanDistPath.keep` in `rsbuild.config.ts` is what
+stops a build from deleting it. The React code is a **port** of `nextjs/src/shared/`, not a copy
+under `scripts/sync-shared.sh`: neither app imports or is synced from the other, and
+`shared/public/checkout.js` is the original both came from. Wording the payer reads — `ERROR_COPY`,
+`STATUS_COPY` — therefore exists three times and must say the same thing in all three.
+
 ## Frontend constraints
 
 Everywhere:
@@ -293,15 +339,18 @@ Everywhere:
   `public/result.js`. The policy names the `SDK_URL` origin in `script-src` **and** in
   `frame-src` — the card fields are iframes from that host — and is built at runtime, so it is a
   header and not a violation of the no-templating rule. `nextjs/` is the exception again: Next
-  emits its own inline scripts, so its middleware mints a nonce per request instead.
+  emits its own inline scripts, so its middleware mints a nonce per request instead. `go-react/`
+  is not an exception — its bundler is told to inline nothing, and it pays for that with a theme
+  applied one frame later.
 
-In every example but `nextjs/`:
+In every example but `nextjs/` and `go-react/`:
 
 - No dependencies and no bundler for the browser half.
 - `public/` is ES5: `var`, `function`, no arrow functions, no template literals.
 
-In `nextjs/` the bundler is the point of the example, but the dependencies are still only
-Next, React and the two linters — nothing for the integration itself.
+In those two the bundler is the point of the example, but the dependencies are still only the
+framework, React and the linters — nothing for the integration itself. `go-react/web` has two
+runtime dependencies, `react` and `react-dom`.
 
 ## Secrets
 
@@ -328,6 +377,8 @@ cd dotnet-aspnetcore-js && dotnet format HostedFields.csproj --verify-no-changes
                       && dotnet build HostedFields.csproj -c Release \
                       && dotnet test tests/HostedFields.Tests.csproj
 cd nextjs             && yarn install && yarn lint && yarn build
+cd go-react/web       && yarn install && yarn lint && yarn build
+cd go-react           && gofmt -l . && go vet ./... && go test ./... && go build ./...
 ```
 
 The first line is what CI runs — see `.github/workflows/ci.yml`.
@@ -336,14 +387,15 @@ The first line is what CI runs — see `.github/workflows/ci.yml`.
 
 `e2e-tests/` starts a fake gateway on one origin, points every app at it with environment
 variables and drives a browser through the payment. It is **local only and not part of CI or of
-the checks above** — it needs a browser, a `next build` and either ten toolchains or Docker.
+the checks above** — it needs a browser, two bundler builds and either ten toolchains or Docker.
 
 ```bash
-cd e2e-tests && npm test        # or test:go / test:express / test:php / test:python /
-                                #    test:ruby / test:java / test:kotlin / test:rust / test:nextjs
+cd e2e-tests && npm test        # or test:go / test:go-react / test:express / test:php /
+                                #    test:python / test:ruby / test:java / test:kotlin /
+                                #    test:rust / test:nextjs
 cd e2e-tests && npm run test:dotnet   # .NET only, and never part of a bare `npm test`
 
-cd e2e-tests && npm run test:docker   # the same specs against docker-compose.yml — all ten
+cd e2e-tests && npm run test:docker   # the same specs against docker-compose.yml — all eleven
 cd e2e-tests && npm run test:docker:java   # or one, by the same short names
 ```
 
@@ -352,15 +404,16 @@ through `appOrigin()` / `appUrl()`, which return its own port natively and the s
 plus its `BASE_PATH` behind compose. `E2E_TARGET=docker` is what switches, and
 `playwright.docker.config.ts` sets the rest of the difference:
 
-- **the docker mode runs all ten, .NET included.** `onRequestOnly` is about a toolchain that
+- **the docker mode runs all eleven, .NET included.** `onRequestOnly` is about a toolchain that
   might be missing, and Docker supplies all of them — so that flag is read only in the native
   mode, which is what `startedApps()` in `src/apps.ts` decides;
 - **`docker-compose.e2e.yml` is an override, never a second stack.** It is read on top of
-  `docker-compose.yml`, so the ten services and the ten mounted `deploy/nginx.conf` are not
-  restated. It changes four things: its own project name, so a demo stack and a test run can be up
-  at once; nginx on **4020** and the emulator published on **4010**; the e2e settings through
-  `environment:`, with the base file's `env_file` dropped so a root `.env` with real credentials
-  cannot reach a test run; and the key mount re-pointed at `e2e-tests/.tmp/private_key.pem`;
+  `docker-compose.yml`, so the eleven services and the eleven mounted `deploy/nginx.conf` are
+  not restated. It changes four things: its own project name, so a demo stack and a test run
+  can be up at once; nginx on **4020** and the emulator published on **4010**; the e2e settings
+  through `environment:`, with the base file's `env_file` dropped so a root `.env` with real
+  credentials cannot reach a test run; and the key mount re-pointed at
+  `e2e-tests/.tmp/private_key.pem`;
 - **the published port must equal the internal one**, for both 4020 and 4010. The emulator does
   not read the request's `Host` — `src/emulator/server.ts` rebuilds the signed URL from its own
   `EMULATOR_ORIGIN` — so one address has to be true in three places: what the app signs, what the
@@ -392,16 +445,17 @@ Five things about the suite are load-bearing in both modes:
   serves, written in the same ES5 style as `public/`, and `scripts/sync-shared.sh` does not touch
   it.
 
-The native mode rebuilds `nextjs/.next`, because `basePath` is baked in at build time. The docker
-mode builds it inside the image and leaves the working tree alone.
+The native mode rebuilds `nextjs/.next`, because `basePath` is baked in at build time, and
+`go-react/web/dist`, because `//go:embed` needs it before the compiler runs. The docker mode
+builds both inside the images and leaves the working tree alone.
 
-## All ten at once, in `docker-compose.yml`
+## All eleven at once, in `docker-compose.yml`
 
-`docker compose up --build` builds ten images and runs them behind one nginx on `:8080`. It
+`docker compose up --build` builds eleven images and runs them behind one nginx on `:8080`. It
 exists for three reasons, and the second is the one to protect:
 
 - no toolchain to install;
-- **it is the only thing that ever executes the ten `deploy/nginx.conf`.** Those files ship in
+- **it is the only thing that ever executes the eleven `deploy/nginx.conf`.** Those files ship in
   the release archives and the READMEs tell people to install them, and until this they were
   documentation with nothing to check them;
 - it is what `e2e-tests/` runs its second mode against, so a browser test of any example needs
@@ -411,22 +465,22 @@ exists for three reasons, and the second is the one to protect:
 That second reason is what fixes the shape of the file. Every app service joins the nginx
 container's network namespace (`network_mode: "service:nginx"`), so the snippets' own
 `proxy_pass http://127.0.0.1:300x` is true inside it and they are mounted **unmodified**. Service
-names and `LISTEN_ADDR=0.0.0.0` would have been the ordinary answer and would have meant ten
+names and `LISTEN_ADDR=0.0.0.0` would have been the ordinary answer and would have meant eleven
 second copies, drifting silently — the one thing `shared/` exists to prevent. Keep the mounts
 read-only and keep them pointing at `*/deploy/nginx.conf`.
 
 Four consequences worth knowing before editing it: a service in a shared namespace may not
-declare `ports`, `networks` or `hostname`; **`docker compose restart` does not work** — the ten
-hold a handle on the namespace nginx owns, so restarting leaves some of them without a network and
-`up -d --force-recreate` is the way; the root `.env` must carry **no `PORT`, `LISTEN_ADDR` or
-`BASE_PATH`** — all ten read that one file, and every example already defaults to its own port
-and prefix; and **`HTTP_PORT` is one variable driving three things** — the published port, nginx's
-own `listen`, and the port in `PUBLIC_URL`. That is why `docker/nginx/default.conf.template` is a
-template: the nginx image's entrypoint runs `envsubst` over `/etc/nginx/templates/*.template`, so
-the file may hold no nginx variable of its own, and the ten mounted snippets are not templates,
-which is what keeps their `$host` and `$proxy_add_x_forwarded_for` intact. `env_file` is
-`required: false` so a run that passes every setting through `environment:` needs no root `.env`
-and no key at the repository root.
+declare `ports`, `networks` or `hostname`; **`docker compose restart` does not work** — the
+eleven hold a handle on the namespace nginx owns, so restarting leaves some of them without a
+network and `up -d --force-recreate` is the way; the root `.env` must carry **no `PORT`,
+`LISTEN_ADDR` or `BASE_PATH`** — all eleven read that one file, and every example already
+defaults to its own port and prefix; and **`HTTP_PORT` is one variable driving three things** —
+the published port, nginx's own `listen`, and the port in `PUBLIC_URL`. That is why
+`docker/nginx/default.conf.template` is a template: the nginx image's entrypoint runs `envsubst`
+over `/etc/nginx/templates/*.template`, so the file may hold no nginx variable of its own, and
+the eleven mounted snippets are not templates, which is what keeps their `$host` and
+`$proxy_add_x_forwarded_for` intact. `env_file` is `required: false` so a run that passes every
+setting through `environment:` needs no root `.env` and no key at the repository root.
 
 `php-js` is the only app whose shipped deploy config cannot be mounted as it is: its pool sets
 `clear_env = yes` and names every setting as an `env[]` line, which is right for a system FPM and
@@ -434,9 +488,9 @@ blind to compose's environment. Its `Dockerfile` writes a compose pool instead, 
 comment exactly which two lines differ and why. `nextjs` is the only one needing a build argument,
 because `next build` bakes `basePath` in.
 
-**This is what a tenth language now costs**, on top of the one line in `scripts/sync-shared.sh`:
-a `Dockerfile`, a `.dockerignore`, a service in `docker-compose.yml` and a mount line for its
-snippet. Images are not built in CI.
+**This is what an eleventh example now costs**, on top of the one line in
+`scripts/sync-shared.sh`: a `Dockerfile`, a `.dockerignore`, a service in `docker-compose.yml`
+and a mount line for its snippet. Images are not built in CI.
 
 ## Documentation
 

@@ -1,0 +1,25 @@
+{
+  /* The browser half. Note what is not here: no "node" in `types`, so nothing under src/ can
+     so much as name `process` or `fs` and have it compile. The build configuration is checked
+     separately, by tsconfig.node.json — which is the whole seam this example is about,
+     expressed as two compiler settings. */
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "types": [],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}

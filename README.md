@@ -1,9 +1,9 @@
 # Hosted Fields examples
 
-Ten working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on PHP, on
-Python, on Ruby, on Java, on Kotlin, on Rust, on .NET and on Next.js. Same payment, same screens,
-same flow — what differs is the server language and, in the last, whether the page is a static file
-or a React tree.
+Eleven working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on PHP, on
+Python, on Ruby, on Java, on Kotlin, on Rust, on .NET, on Next.js and on Go with a React page.
+Same payment, same screens, same flow — what differs is the server language and, in the last two,
+whether the page is a static file or a React tree.
 
 ## The examples
 
@@ -19,6 +19,7 @@ or a React tree.
 | **Rust** | Rust 1.85+, axum | [`rust-axum-js/`](rust-axum-js/) | [`src/main.rs`](rust-axum-js/src/main.rs) routes · [`src/paynet.rs`](rust-axum-js/src/paynet.rs) the three gateway calls · [`src/oauth.rs`](rust-axum-js/src/oauth.rs) request signing |
 | **.NET** | .NET 10+, ASP.NET Core, no NuGet package | [`dotnet-aspnetcore-js/`](dotnet-aspnetcore-js/) | [`Program.cs`](dotnet-aspnetcore-js/Program.cs) routes · [`Paynet.cs`](dotnet-aspnetcore-js/Paynet.cs) the three gateway calls · [`OAuth.cs`](dotnet-aspnetcore-js/OAuth.cs) request signing |
 | **Next.js** | Node 20+, React 19, TypeScript | [`nextjs/`](nextjs/) | [`src/app/`](nextjs/src/app/) pages and route handlers · [`src/shared/lib/paynet.ts`](nextjs/src/shared/lib/paynet.ts) the three gateway calls · [`src/shared/ui/checkout-form.tsx`](nextjs/src/shared/ui/checkout-form.tsx) the page |
+| **Go + React** | Go 1.24+ server, React 19 SPA | [`go-react/`](go-react/) | [`main.go`](go-react/main.go) routes · [`paynet.go`](go-react/paynet.go) the three gateway calls · [`web/src/shared/api/`](go-react/web/src/shared/api/) everything the page asks the server for |
 
 The browser half lives once, in [`shared/`](shared/) —
 [`checkout.js`](shared/public/checkout.js) sets up the fields and tokenizes,
@@ -29,11 +30,18 @@ That is the point of having more than one: everything interesting about Hosted F
 in the page, and the server behind it is interchangeable. Pick whichever language you work in
 and ignore the others.
 
-The Next.js example answers the other question — what this looks like when the page is React.
-It cannot share those files, so they are ported to components, but it serves the very same
-[`public/styles.css`](go-js/public/styles.css) and the screens are the same to the pixel. Its
-own subject is the seam: an SDK that injects cross-origin iframes imperatively, into elements
+The last two answer the other question — what this looks like when the page is React. They
+cannot share those files, so they are ported to components, but they serve the very same
+[`public/styles.css`](go-js/public/styles.css) and the screens are the same to the pixel. Their
+common subject is the seam: an SDK that injects cross-origin iframes imperatively, into elements
 React also owns. See [nextjs/README.md](nextjs/README.md#react-and-a-cross-origin-sdk).
+
+They differ in where that leaves the server. [`nextjs/`](nextjs/) puts both halves in one
+framework and one `src/` tree, which is the ordinary way to build it and the reason it is hard to
+tell by looking which file runs where. [`go-react/`](go-react/) is the same page as a plain
+single-page application in [`web/`](go-react/web/), in front of a Go server that is `go-js`'s
+near enough to diff — so the boundary is a directory line and an HTTP request, and the only
+things that cross it are one generated `<script>` and two `fetch` calls.
 
 ## What it looks like
 
@@ -70,6 +78,10 @@ the older ones and the checksums.
 | Rust | Windows x64 | [`..._windows_amd64.zip`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-rust_windows_amd64.zip) | unzip, set the environment, run the `.exe` |
 | .NET | any | [`...dotnet.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-dotnet.tar.gz) | `tar -xzf`, then `dotnet hosted-fields-example-dotnet.dll` — needs the .NET 10 runtime and nothing else, the pages are inside the assembly |
 | Next.js | any | [`...nextjs.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nextjs.tar.gz) | the same, `node server.js` — but the URL prefix is compiled in, so rebuild from source to change it |
+| Go + React | Linux x86-64 | [`..._linux_amd64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go-react_linux_amd64.tar.gz) | `tar -xzf`, set the environment, run the binary — the React page is inside it, prefix and all settings still at runtime |
+| Go + React | Linux arm64 | [`..._linux_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go-react_linux_arm64.tar.gz) | the same |
+| Go + React | macOS Apple silicon | [`..._darwin_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go-react_darwin_arm64.tar.gz) | `tar -xzf`, then `xattr -d com.apple.quarantine hosted-fields-examples-go-react` — the binary is not notarised |
+| Go + React | Windows x64 | [`..._windows_amd64.zip`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go-react_windows_amd64.zip) | unzip, set the environment, run the `.exe` |
 
 The Linux archives also carry `deploy/` with a systemd unit, an nginx snippet and an environment
 template. The macOS and Windows builds do not: those are for trying the example on a laptop.
@@ -126,9 +138,9 @@ Sinatra, Spring Boot, Ktor, axum and ASP.NET Core check at startup; Next checks 
 request, so that a build needs no credentials, and PHP on every request, because it has no startup
 to check at.
 
-## Run all ten at once
+## Run all eleven at once
 
-That "behind one nginx" is not a figure of speech, and `docker-compose.yml` is it: ten images,
+That "behind one nginx" is not a figure of speech, and `docker-compose.yml` is it: eleven images,
 one nginx, no toolchain to install.
 
 ```bash
@@ -137,12 +149,12 @@ cp your_key.pem private_key.pem         # PKCS#8 — the JDK reads nothing else
 docker compose up --build               # http://localhost:8080/
 ```
 
-The front page lists all ten. Each is routed by **its own [`deploy/nginx.conf`](go-js/deploy/nginx.conf)**,
+The front page lists all eleven. Each is routed by **its own [`deploy/nginx.conf`](go-js/deploy/nginx.conf)**,
 mounted unmodified — so this is also what checks that the file in every release archive is
 correct, which nothing else does.
 
 It is a demo and not a deployment: plain HTTP on a local port. The first build is slow — it
-compiles Rust, packages a Spring Boot jar and runs `next build`. Set `HTTP_PORT` in `.env` if
+compiles Rust, packages a Spring Boot jar and runs both `next build` and an Rsbuild build. Set `HTTP_PORT` in `.env` if
 something already has 8080 — it drives the published port, nginx's own and `PUBLIC_URL` at once —
 and restart the stack rather than one service, because every app shares the nginx container's
 network namespace, which is what lets the shipped snippets be used unchanged.
@@ -230,6 +242,14 @@ cp .env.example .env          # the same values again
 yarn dev                      # http://localhost:3002/hosted-fields-examples-nextjs/
 ```
 
+```bash
+# Go + React — needs Go 1.24+ and Node 20+ with yarn; the page is built into the binary
+cd go-react
+(cd web && yarn install && yarn build)
+cp .env.example .env          # the same values again
+go run .                      # http://localhost:3010/hosted-fields-examples-go-react/
+```
+
 Sandbox test card: `4444 4444 4444 4448`, any future expiry, CVV `123`.
 
 Each app has its own README with the details — settings, the 3DS return, deployment behind nginx:
@@ -240,15 +260,16 @@ Each app has its own README with the details — settings, the 3DS return, deplo
 [kotlin-ktor-js/README.md](kotlin-ktor-js/README.md) ·
 [rust-axum-js/README.md](rust-axum-js/README.md) ·
 [dotnet-aspnetcore-js/README.md](dotnet-aspnetcore-js/README.md) ·
-[nextjs/README.md](nextjs/README.md)
+[nextjs/README.md](nextjs/README.md) ·
+[go-react/README.md](go-react/README.md)
 
 ## Layout
 
 ```
 shared/                 the browser half, once
 scripts/sync-shared.sh  copies it into every app
-docker-compose.yml      all ten at once, behind one nginx
-docker/nginx/           the server block the ten shipped snippets are included into
+docker-compose.yml      all eleven at once, behind one nginx
+docker/nginx/           the server block the eleven shipped snippets are included into
 go-js/                  Go + plain JS, assets embedded in the binary
 nodejs-express-js/      Node.js + Express + plain JS
 php-js/                 PHP + plain JS, no Composer
@@ -259,6 +280,7 @@ kotlin-ktor-js/         Kotlin + Ktor + plain JS, assets packaged into the jar
 rust-axum-js/           Rust + axum + plain JS, assets compiled into the binary
 dotnet-aspnetcore-js/   .NET + ASP.NET Core + plain JS, assets embedded in the assembly
 nextjs/                 Next.js + React + TypeScript
+go-react/               Go server + React SPA, the bundle embedded in the binary
 e2e-tests/              a fake gateway, and every app driven through a browser
 ```
 
@@ -274,8 +296,8 @@ CI runs that script and then `git diff --exit-code`, so an unsynced copy fails t
 is no per-file list anywhere and no line that is allowed to differ — the config injection left
 the HTML and became `config.js`, which is why a fourth or a tenth language costs nothing here.
 
-`nextjs/` takes only `styles.css`: its scripts and views are React components. That one shared
-file is what keeps them from looking different.
+`nextjs/` and `go-react/web/` take only `styles.css`: their scripts and views are React
+components. That one shared file is what keeps them from looking different.
 
 ## What an example leaves for you
 
@@ -318,14 +340,14 @@ npm install && npm run browser   # once
 npm test                         # starts each app itself — needs its toolchain
 npm run test:dotnet              # .NET is asked for by name, not part of `npm test`
 
-npm run test:docker              # the same specs against the compose stack — all ten
+npm run test:docker              # the same specs against the compose stack — all eleven
 npm run test:docker:java         # or one of them, by its short name
 ```
 
 The two ways run the same specs against the same fake gateway; what differs is where the
 applications come from. Natively Playwright starts each one, which is why a run needs that
 toolchain installed and why .NET is opt-in. Against the containers there is nothing to install but
-Docker, so all ten run — including .NET — and the stack comes up and goes down with the run,
+Docker, so all eleven run — including .NET — and the stack comes up and goes down with the run,
 under its own project name so a demo stack on `:8080` is left alone.
 
 It runs locally only, not in CI. The signatures and the 3DS checksum are verified rather than

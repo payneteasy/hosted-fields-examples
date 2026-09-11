@@ -135,6 +135,36 @@ jobs:
             rm -rf "../dist-release/${dir:?}"
           done
 
+      # The same four binaries again, with a React bundle inside them instead of the shared
+      # scripts: `yarn build` writes web/dist once and go:embed compiles it into each target.
+      # Unlike the nextjs artefact below, the URL prefix is not baked in — one binary serves
+      # under any BASE_PATH.
+      - name: go-react
+        working-directory: go-react
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          (cd web && yarn install --frozen-lockfile && yarn build)
+          for target in linux/amd64 linux/arm64 darwin/arm64 windows/amd64; do
+            os="${target%/*}"; arch="${target#*/}"
+            name="hosted-fields-examples-go-react_${os}_${arch}"
+            dir="hosted-fields-examples-go-react_${tag}_${os}_${arch}"
+            bin="hosted-fields-examples-go-react"
+            if [ "$os" = windows ]; then bin="$bin.exe"; fi
+
+            mkdir -p "../dist-release/$dir"
+            GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags='-s -w' -o "../dist-release/$dir/$bin" .
+            if [ "$os" = linux ]; then cp -r deploy "../dist-release/$dir/"; fi
+
+            if [ "$os" = windows ]; then
+              (cd ../dist-release && zip -qr "$name.zip" "$dir")
+            else
+              tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
+            fi
+            rm -rf "../dist-release/${dir:?}"
+          done
+
       # The node bundle carries express inside it, so the artefact needs no node_modules
       # on the target host — just Node 20.
       - name: nodejs-express-js
@@ -314,6 +344,12 @@ jobs:
             - `hosted-fields-examples-dotnet.tar.gz` — one assembly with the pages inside it,
               plus `deploy/`. Needs the .NET 10 runtime and nothing else, on any platform it
               runs on: `dotnet hosted-fields-example-dotnet.dll`.
+            - `hosted-fields-examples-go-react_*_linux_*.tar.gz` — one static binary again,
+              carrying a React bundle instead of the shared scripts, plus `deploy/`. Needs no
+              runtime, and the URL prefix stays a setting.
+            - `hosted-fields-examples-go-react_*_darwin_arm64.tar.gz`,
+              `hosted-fields-examples-go-react_*_windows_amd64.zip` — the same binary for trying
+              the example on a laptop. No `deploy/`.
             - `hosted-fields-examples-nextjs.tar.gz` — the standalone Next.js server with
               `public/`, `.next/` and `deploy/`. Needs Node 20+, `node server.js`. The URL
               prefix is compiled in: rebuild from source to change it.

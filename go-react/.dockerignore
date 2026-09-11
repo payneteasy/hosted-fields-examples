@@ -1,0 +1,11 @@
+# What must never reach an image. .env, *.pem and *.key are git-ignored repository wide —
+# an image is one more place a key does not belong.
+.env
+*.pem
+*.key
+
+# Local build output. The image builds the browser half itself, in its own stage.
+/hosted-fields-example-go-react
+/hosted-fields-examples-go-react
+/web/node_modules
+/web/dist

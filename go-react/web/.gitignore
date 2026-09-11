@@ -1,0 +1,6 @@
+/node_modules/
+
+# Build output. .gitkeep is committed so the //go:embed in ../main.go compiles in a fresh
+# clone, before anyone has run `yarn build` here.
+/dist/*
+!/dist/.gitkeep
