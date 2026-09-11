@@ -62,7 +62,7 @@ jobs:
         working-directory: dist-release
         run: sha256sum *.tar.gz > SHA256SUMS
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             dist-release/*.tar.gz
