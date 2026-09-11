@@ -1,10 +1,10 @@
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { SIGNED_CALLBACK_FIELDS, validCallback } from './callback.js';
-import { BASE_PATH, ENDPOINT_ID, LISTEN_ADDR, MERCHANT_CONTROL, ORDER_AMOUNT, ORDER_CURRENCY, PORT, SDK_URL } from './config.js';
+import { BASE_PATH, ENDPOINT_ID, LISTEN_ADDR, ORDER_AMOUNT, ORDER_CURRENCY, PORT, SDK_URL } from './config.js';
 import { createSale, getEphemeralTicket, getStatus } from './paynet.js';
 
 // Assets sit next to the bundle in a build, and one level up from src/ in the repo
@@ -135,21 +135,6 @@ router.get('/status', async (req, res, next) => {
     next(error);
   }
 });
-
-// The parameters the gateway signs its callback with, in the order the page wants them back
-const SIGNED_CALLBACK_FIELDS = ['status', 'orderid', 'merchant_order', 'control'];
-
-// The checksum the gateway signs its callbacks with. Takes a form body or a query string:
-// the same values travel on to /result, and are checked again there.
-// https://doc.payneteasy.com/integration/API_commands/merchant_callback_parameters.html
-function validCallback(source) {
-  const field = (name) => String(source[name] ?? '');
-  const expected = createHash('sha1')
-    .update(field('status') + field('orderid') + field('merchant_order') + MERCHANT_CONTROL)
-    .digest('hex');
-  const control = field('control');
-  return control.length === expected.length && timingSafeEqual(Buffer.from(control), Buffer.from(expected));
-}
 
 function resultUrl(callback) {
   const signed = new URLSearchParams();

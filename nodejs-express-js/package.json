@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node --env-file=.env src/server.js",
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "test": "node --test src/*.test.js"
   },
   "dependencies": {
     "express": "^5.1.0"
