@@ -189,6 +189,10 @@ function setFormLoading(loading) {
    `retry` leaves the button live, `spent` does not, because the session is
    gone and only a reload can help.                                          */
 
+/* Ported to React in nextjs/src/shared/ui/checkout-form.tsx, which keeps its own copy of this
+   table and of TERMINAL_ERRORS below. sync-shared.sh cannot help there — it is a port, not a
+   copy — so a word changed here has to be changed there too, or two examples the README calls
+   identical start saying different things to the payer. */
 var ERROR_COPY = {
   retry: 'Your card was declined by the issuing bank. Check the number, expiry and CVV, or try another card.',
   rejected: 'That card number was not accepted. Check the digits, then reload the page to start a new payment.',
