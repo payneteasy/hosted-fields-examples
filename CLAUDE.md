@@ -1,8 +1,8 @@
 # Hosted Fields examples
 
-Six merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
-`python-flask-js/`, `ruby-sinatra-js/` and `nextjs/`. They exist to be read, so clarity beats
-cleverness everywhere in this repository.
+Seven merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
+`python-flask-js/`, `ruby-sinatra-js/`, `java-springboot-js/` and `nextjs/`. They exist to be
+read, so clarity beats cleverness everywhere in this repository.
 
 ## The rule that breaks most often
 
@@ -154,6 +154,29 @@ this page. Four rules, each explained where it is enforced:
 - the signature encoder is **`ERB::Util.url_encode`** and never `CGI.escape`, which is form
   encoding and writes `+` for a space.
 
+## Spring Boot, in `java-springboot-js/` only
+
+Spring Boot brings a template engine, a static file server and a parameter binder, and this page
+wants none of the three. Four rules, each explained where it is enforced:
+
+- **nothing in `views/` is templated**, and no template engine is on the classpath — keep it that
+  way. Both pages are read out of the jar and written byte for byte, and `config.js` is the only
+  generated thing;
+- **`spring.web.resources.add-mappings` is `false`.** `pom.xml` packages `public/` at
+  `classpath:/public/`, which is one of the four locations Spring Boot serves by itself: left on,
+  the framework would serve the client scripts a second way, outside the allowlist in `Routes` and
+  with its own caching headers;
+- **`BASE_PATH` is the servlet context path, set in `main()`** before the container is built, which
+  is why the settings are loaded and validated there rather than in a bean — the port, the
+  interface and the prefix all decide how the container is built. Tomcat's redirect from the bare
+  prefix to the trailing-slash form comes from the same place, and the views' relative asset URLs
+  need it. Nothing is validated at class initialisation, so `./mvnw verify` needs no credentials;
+- the signature encoder is **hand-written**, never `URLEncoder.encode`, which is form encoding:
+  `+` for a space, and `*` left alone. `Paynet.formEncode` *is* `URLEncoder`, because the request
+  body really is form encoded — and the 3DS callback body is parsed by hand rather than through
+  `@RequestParam`, which the servlet container fills from the query string too, so the four values
+  verified would not be the four forwarded.
+
 ## Frontend constraints
 
 Everywhere:
@@ -187,13 +210,14 @@ only.
 
 ```bash
 ./scripts/sync-shared.sh && git diff --exit-code   # every copy matches shared/
-cd go-js             && gofmt -l . && go vet ./... && go build ./...
-cd nodejs-express-js && npm ci && npm run build
-cd php-js            && php -l *.php tests/*.php && php tests/run.php
-cd python-flask-js   && python -m compileall -q -x '(\.venv|__pycache__)' . \
-                     && python -m unittest discover -s tests -t .
-cd ruby-sinatra-js   && ruby -c *.rb config.ru test/*.rb && ruby test/all.rb
-cd nextjs            && yarn install && yarn lint && yarn build
+cd go-js              && gofmt -l . && go vet ./... && go build ./...
+cd nodejs-express-js  && npm ci && npm run build
+cd php-js             && php -l *.php tests/*.php && php tests/run.php
+cd python-flask-js    && python -m compileall -q -x '(\.venv|__pycache__)' . \
+                      && python -m unittest discover -s tests -t .
+cd ruby-sinatra-js    && ruby -c *.rb config.ru test/*.rb && ruby test/all.rb
+cd java-springboot-js && ./mvnw -B -Perrorprone compile && ./mvnw -B verify
+cd nextjs             && yarn install && yarn lint && yarn build
 ```
 
 The first line is what CI runs — see `.github/workflows/ci.yml`.
@@ -206,7 +230,7 @@ the checks above** — it needs every toolchain, a browser and a `next build`.
 
 ```bash
 cd e2e-tests && npm test        # or test:go / test:express / test:php / test:python /
-                                #    test:ruby / test:nextjs
+                                #    test:ruby / test:java / test:nextjs
 ```
 
 Four things about it are load-bearing:
