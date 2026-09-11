@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { SIGNED_CALLBACK_FIELDS, validCallback } from './callback.js';
-import { BASE_PATH, ENDPOINT_ID, LISTEN_ADDR, ORDER_AMOUNT, ORDER_CURRENCY, PORT, SDK_URL } from './config.js';
+import { BASE_PATH, ENDPOINT_ID, LISTEN_ADDR, ORDER_AMOUNT, ORDER_CURRENCY, PORT, SDK_ORIGIN, SDK_URL } from './config.js';
 import { createSale, getEphemeralTicket, getStatus } from './paynet.js';
 
 // Assets sit next to the bundle in a build, and one level up from src/ in the repo
@@ -34,7 +34,33 @@ function sendConfigJS(res, config) {
     .send(`window.CONFIG = ${JSON.stringify(config)};\n`);
 }
 
-const sendView = (res, name) => res.sendFile(join(viewsDir, name));
+/* What a payment page ought to send. The policy is worth reading as part of the example: the
+   card fields are iframes from the gateway, so the SDK host has to be named in frame-src as well
+   as in script-src, and everything else is denied by default.
+
+   No 'unsafe-inline' anywhere, which is why the result page's script lives in public/result.js
+   rather than in the markup: nothing in views/ is templated, so there is nowhere to put a nonce. */
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'none'",
+  `script-src 'self' ${SDK_ORIGIN}`,
+  "style-src 'self'",
+  // The three card inputs are cross-origin iframes served by the gateway
+  `frame-src ${SDK_ORIGIN}`,
+  `connect-src 'self' ${SDK_ORIGIN}`,
+  "img-src 'self' data:",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+const sendView = (res, name) =>
+  res
+    .set('Content-Security-Policy', CONTENT_SECURITY_POLICY)
+    .set('X-Content-Type-Options', 'nosniff')
+    .set('Referrer-Policy', 'no-referrer')
+    // The page carries the signed order parameters in its URL, and it is one payment's page
+    .set('Cache-Control', 'no-store')
+    .sendFile(join(viewsDir, name));
 
 // The 3DS 2.0 fields the page is allowed to supply. Everything the Sale needs besides these —
 // amount, currency, redirect_url, hosted_fields_token, client_orderid — is the server's own, so

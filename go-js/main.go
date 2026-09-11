@@ -244,8 +244,35 @@ func serveView(w http.ResponseWriter, name string) {
 		http.Error(w, "page not found", http.StatusInternalServerError)
 		return
 	}
+	securityHeaders(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(page)
+}
+
+// What a payment page ought to send. The policy is worth reading as part of the example: the
+// card fields are iframes from the gateway, so the SDK host has to be named in frame-src as
+// well as in script-src, and everything else is denied by default.
+//
+// No 'unsafe-inline' anywhere, which is why the result page's script lives in public/result.js
+// rather than in the markup: nothing in views/ is templated, so there is nowhere to put a nonce.
+func securityHeaders(w http.ResponseWriter) {
+	policy := []string{
+		"default-src 'none'",
+		"script-src 'self' " + cfg.SDKOrigin,
+		"style-src 'self'",
+		// The three card inputs are cross-origin iframes served by the gateway
+		"frame-src " + cfg.SDKOrigin,
+		"connect-src 'self' " + cfg.SDKOrigin,
+		"img-src 'self' data:",
+		"base-uri 'none'",
+		"form-action 'self'",
+		"frame-ancestors 'none'",
+	}
+	w.Header().Set("Content-Security-Policy", strings.Join(policy, "; "))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	// The page carries the signed order parameters in its URL, and it is one payment's page
+	w.Header().Set("Cache-Control", "no-store")
 }
 
 // validCallback checks the checksum the gateway signs its callbacks with:
