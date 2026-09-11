@@ -82,6 +82,31 @@ export function rubyBinary(): string {
   return 'ruby';
 }
 
+/**
+ * The JDK `./mvnw` builds and `java -jar` runs with. A JDK from a version manager is often in
+ * JAVA_HOME but not on PATH, or the other way round, so this names one and puts it first on both —
+ * which is what makes the whole command line agree on a single JDK.
+ *
+ * An empty result is not a failure: mvnw then looks for java on PATH itself, and says so clearly
+ * when there is none.
+ */
+export function javaEnv(): Record<string, string> {
+  const candidates = [
+    process.env.JAVA_HOME,
+    join(homedir(), '.sdkman', 'candidates', 'java', 'current'),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    if (existsSync(join(candidate, 'bin', 'java'))) {
+      return {
+        JAVA_HOME: candidate,
+        PATH: `${join(candidate, 'bin')}${delimiter}${process.env.PATH ?? ''}`,
+      };
+    }
+  }
+  return {};
+}
+
 function gatewayEnv(port: number): Record<string, string> {
   return {
     PORT: String(port),
@@ -181,6 +206,27 @@ export const APPS: AppUnderTest[] = [
     },
     // The first run compiles puma's native extension
     startTimeout: 180_000,
+  },
+  {
+    name: 'java-springboot-js',
+    port: 4017,
+    basePath: '/hosted-fields-examples-java',
+    cwd: join(REPO_ROOT, 'java-springboot-js'),
+    // The build output goes to the app's own target/, not to .tmp/ like the Go binary and the
+    // Flask virtualenv: it is git-ignored, so the working tree is still left as it was found, and
+    // Maven's own cache is ~/.m2, outside the repository either way. Tests are skipped here —
+    // `./mvnw verify` is what runs them, and this step only has to produce the jar.
+    command:
+      './mvnw -q -B -DskipTests package && exec java -jar target/hosted-fields-example-java.jar',
+    env: {
+      ...gatewayEnv(4017),
+      // BASE_PATH is pinned for the same reason as the PHP, Flask and Sinatra entries: the app
+      // runs from its own directory, so java-springboot-js/.env is in reach.
+      BASE_PATH: '/hosted-fields-examples-java',
+      ...javaEnv(),
+    },
+    // A cold run downloads Maven itself and then Spring Boot; a warm one is a few seconds
+    startTimeout: 600_000,
   },
   {
     name: 'nextjs',
