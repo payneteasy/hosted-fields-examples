@@ -30,8 +30,8 @@ Two things are verified rather than waved through, so that a green run means som
 
 - **the OAuth 1.0a RSA-SHA256 signature on every server call**, checked against the generated
   public key. This is the only place the bytes actually on the wire are checked — the unit tests
-  in `go-js`, `nodejs-express-js` and `php-js` each check their own signer against a fixed base
-  string, and `nextjs` has no unit test at all;
+  in `go-js`, `nodejs-express-js`, `php-js` and `python-flask-js` each check their own signer
+  against a fixed base string, and `nextjs` has no unit test at all;
 - **the `control` checksum on the 3DS return**, because the emulator signs what every example
   verifies. A disagreement shows up as a `403`.
 
@@ -41,7 +41,7 @@ Two things are verified rather than waved through, so that a green run means som
 npm install
 npm run browser          # once: downloads Chromium
 npm test                 # every application
-npm run test:go          # or test:express / test:php / test:nextjs
+npm run test:go          # or test:express / test:php / test:python / test:nextjs
 npm run test:ui          # the Playwright UI, for watching a flow
 ```
 
@@ -65,8 +65,9 @@ behaviour.
 
 - **Nothing here touches your `.env` files.** Every setting goes to the apps as a process
   environment variable, which wins over `.env` in all of them, and the Go binary is run from
-  `.tmp/` where there is no `.env` at all. The PHP example has to run from its own directory, so
-  `apps.ts` pins its `BASE_PATH` too — the one setting `gatewayEnv()` does not pass.
+  `.tmp/` where there is no `.env` at all. The PHP and Flask examples have to run from their own
+  directories, so `apps.ts` pins their `BASE_PATH` too — the one setting `gatewayEnv()` does not
+  pass.
 - **`npm test` rebuilds `nextjs/.next`**, because `basePath` is baked in at build time. Do not
   run the suite while `next dev` is live on the same directory.
 - **The Go example is compiled to `.tmp/` and exec'd**, not run with `go run .`: `go run` leaves
@@ -75,9 +76,13 @@ behaviour.
 - **The PHP example is served by `php -S`**, which takes the port on the command line and
   handles one request at a time. The flow is sequential, so that is not a problem here; a test
   that seems to hang on `php-js` is worth reading as a request waiting behind another one.
+- **The Flask example gets its virtualenv in `.tmp/`**, built and installed into by its own
+  `command` before the server starts, so nothing lands in `python-flask-js/`. The first run pays
+  for a `pip install cryptography`, which is why that entry sets a longer `startTimeout`; after
+  that both steps are near-instant.
 - **The RSA key is generated, never committed** — into `.tmp/`, once, and reused.
-- **Ports 4010-4014** are used so your own servers on 3000-3003 can keep running. If a run ends
-  strangely, `lsof -ti tcp:4010,4011,4012,4013,4014 | xargs kill`.
+- **Ports 4010-4015** are used so your own servers on 3000-3004 can keep running. If a run ends
+  strangely, `lsof -ti tcp:4010,4011,4012,4013,4014,4015 | xargs kill`.
 - `E2E_VERIFY_OAUTH=0` turns off signature verification, which is worth doing only to find out
   whether a failure is the application's or this harness's.
 
