@@ -127,6 +127,32 @@ jobs:
       # touch no gem at all. No credentials either — they stub what settings.rb validates.
       - run: ruby test/all.rb
 
+  java:
+    name: java-springboot-js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: java-springboot-js
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: java-springboot-js/pom.xml
+
+      # Java has no gofmt and no `ruby -c` in the box, so the static check is the build's: Error
+      # Prone and NullAway are the counterpart of `go vet`, and spotless:check below — which
+      # `verify` runs — is the counterpart of gofmt itself. `./mvnw`, so the Maven version is the
+      # committed one and not whatever the runner ships.
+      - run: ./mvnw -B -Perrorprone compile
+
+      # The OAuth base string and the 3DS callback checksum, on the same vectors as the other
+      # jobs, and then the jar. No credentials: the settings are validated in main(), not at class
+      # initialisation, so nothing here needs any.
+      - run: ./mvnw -B verify
+
   nextjs:
     name: nextjs
     runs-on: ubuntu-latest
