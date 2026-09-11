@@ -27,7 +27,11 @@ function selectedProjects(): string[] {
 }
 
 const wanted = selectedProjects();
-const appsToStart = wanted.length > 0 ? APPS.filter((app) => wanted.includes(app.name)) : APPS;
+/* What a bare `npm test` covers. An app marked onRequestOnly is still a project, so
+   `--project=<name>` finds it — it is only left out of the default set. */
+const byDefault = APPS.filter((app) => !app.onRequestOnly);
+const appsToRun = wanted.length > 0 ? APPS : byDefault;
+const appsToStart = wanted.length > 0 ? APPS.filter((app) => wanted.includes(app.name)) : byDefault;
 
 export default defineConfig({
   testDir: './e2e',
@@ -44,7 +48,7 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   use: { trace: 'on-first-retry' },
 
-  projects: APPS.map((app) => ({
+  projects: appsToRun.map((app) => ({
     name: app.name,
     use: { ...devices['Desktop Chrome'], baseURL: appOrigin(app) },
   })),

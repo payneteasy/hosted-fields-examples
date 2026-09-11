@@ -31,8 +31,8 @@ Two things are verified rather than waved through, so that a green run means som
 - **the OAuth 1.0a RSA-SHA256 signature on every server call**, checked against the generated
   public key. This is the only place the bytes actually on the wire are checked — the unit tests
   in `go-js`, `nodejs-express-js`, `php-js`, `python-flask-js`, `ruby-sinatra-js`,
-  `java-springboot-js` and `rust-axum-js` each check their own signer against a fixed base string,
-  and `nextjs` has no unit test at all;
+  `java-springboot-js`, `rust-axum-js` and `dotnet-aspnetcore-js` each check their own signer
+  against a fixed base string, and `nextjs` has no unit test at all;
 - **the `control` checksum on the 3DS return**, because the emulator signs what every example
   verifies. A disagreement shows up as a `403`.
 
@@ -41,9 +41,9 @@ Two things are verified rather than waved through, so that a green run means som
 ```bash
 npm install
 npm run browser          # once: downloads Chromium
-npm test                 # every application
+npm test                 # every application except .NET, which is asked for by name
 npm run test:go          # or test:express / test:php / test:python / test:ruby /
-                         #    test:java / test:rust / test:nextjs
+                         #    test:java / test:rust / test:dotnet / test:nextjs
 npm run test:ui          # the Playwright UI, for watching a flow
 ```
 
@@ -98,9 +98,19 @@ behaviour.
   is what the long `startTimeout` on that entry is for. `apps.ts` locates cargo the way it locates
   Go — rustup puts it in `~/.cargo/bin`, which is on `PATH` only for a shell that sourced
   `~/.cargo/env`. Set `CARGO_BIN` if yours is somewhere else.
+- **The .NET example runs only when it is asked for**, with `npm run test:dotnet`, and a bare
+  `npm test` leaves it out — it carries `onRequestOnly: true` in `apps.ts`. A missing toolchain is
+  a hard failure here rather than a skip, and the .NET SDK is the newest of the ones this suite
+  wants, so including it in the default run would take the whole suite down on a machine that has
+  every other toolchain. Everything else about the entry is ordinary: it is **published into
+  `.tmp/` and run from there**, for the same two reasons the Go and Rust ones are — no `bin/` or
+  `obj/` of this suite's making is left in the app directory, and an assembly started from `.tmp/`
+  finds no `.env` to read. `apps.ts` locates the SDK the way it locates cargo — the macOS installer
+  puts it in `/usr/local/share/dotnet`, which is usually symlinked onto `PATH` but need not be.
+  Set `DOTNET_BIN` or `DOTNET_ROOT` if yours is somewhere else.
 - **The RSA key is generated, never committed** — into `.tmp/`, once, and reused.
-- **Ports 4010-4018** are used so your own servers on 3000-3007 can keep running. If a run ends
-  strangely, `lsof -ti tcp:4010,4011,4012,4013,4014,4015,4016,4017,4018 | xargs kill`.
+- **Ports 4010-4019** are used so your own servers on 3000-3008 can keep running. If a run ends
+  strangely, `lsof -ti tcp:4010,4011,4012,4013,4014,4015,4016,4017,4018,4019 | xargs kill`.
 - `E2E_VERIFY_OAUTH=0` turns off signature verification, which is worth doing only to find out
   whether a failure is the application's or this harness's.
 

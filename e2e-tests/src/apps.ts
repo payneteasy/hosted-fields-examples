@@ -30,6 +30,11 @@ const GO_BINARY_OUT = join(TMP_DIR, 'hosted-fields-example-go');
 const RUST_TARGET_DIR = join(TMP_DIR, 'rust-axum-target');
 const RUST_BINARY_OUT = join(RUST_TARGET_DIR, 'release', 'hosted-fields-example-rust');
 
+/** The .NET example is published into .tmp/ for the same reason, and run from there: the app
+ *  directory keeps no bin/ or obj/ of the suite's making, and the process finds no .env beside it. */
+const DOTNET_PUBLISH_DIR = join(TMP_DIR, 'dotnet-publish');
+const DOTNET_APP_DLL = join(DOTNET_PUBLISH_DIR, 'hosted-fields-example-dotnet.dll');
+
 /** The Flask example's virtualenv, here for the same reason: the suite must leave every app
  *  directory exactly as it found it. */
 const PYTHON_VENV = join(TMP_DIR, 'python-flask-venv');
@@ -50,6 +55,10 @@ export interface AppUnderTest {
   /** How long to wait for the readiness probe. Omitted means the 60s default; an app that builds
    *  or installs before it listens needs more. */
   startTimeout?: number;
+  /** Left out of a bare `npm test`, and run only when asked for by name. A missing toolchain is a
+   *  hard failure rather than a skip, so an example whose toolchain is not yet on every machine
+   *  here would otherwise take the whole suite down with it. `npm run test:<name>` runs it. */
+  onRequestOnly?: boolean;
 }
 
 /**
@@ -128,6 +137,27 @@ export function cargoBinary(): string {
   }
   // Falls back to PATH; if it is not there either the webServer start fails with ENOENT.
   return 'cargo';
+}
+
+/**
+ * The .NET SDK. The macOS installer puts it in /usr/local/share/dotnet and symlinks it onto PATH,
+ * but a side-by-side install or a DOTNET_ROOT of one's own does neither, so the location is named
+ * here the way cargo's and Go's are.
+ */
+export function dotnetBinary(): string {
+  const candidates = [
+    process.env.DOTNET_BIN,
+    process.env.DOTNET_ROOT ? join(process.env.DOTNET_ROOT, 'dotnet') : undefined,
+    '/usr/local/share/dotnet/dotnet',
+    join(homedir(), '.dotnet', 'dotnet'),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  // Falls back to PATH; if it is not there either the webServer start fails with ENOENT.
+  return 'dotnet';
 }
 
 function gatewayEnv(port: number): Record<string, string> {
@@ -268,6 +298,33 @@ export const APPS: AppUnderTest[] = [
     },
     // A cold build compiles axum, tokio and rustls from source; a warm one is a few seconds
     startTimeout: 600_000,
+  },
+  {
+    name: 'dotnet-aspnetcore-js',
+    port: 4019,
+    basePath: '/hosted-fields-examples-dotnet',
+    cwd: join(REPO_ROOT, 'dotnet-aspnetcore-js'),
+    // Published into .tmp/ and then run from there, the way the Go and Rust examples are built and
+    // exec'd: no bin/ or obj/ is left in the app directory, and the process finds no .env there —
+    // so dotnet-aspnetcore-js/.env cannot leak into a test run, and BASE_PATH needs no pin.
+    command:
+      `${JSON.stringify(dotnetBinary())} publish HostedFields.csproj -c Release ` +
+      `-o ${JSON.stringify(DOTNET_PUBLISH_DIR)} ` +
+      `&& cd ${JSON.stringify(TMP_DIR)} ` +
+      `&& exec ${JSON.stringify(dotnetBinary())} ${JSON.stringify(DOTNET_APP_DLL)}`,
+    env: {
+      ...gatewayEnv(4019),
+      PATH: `${dirname(dotnetBinary())}${delimiter}${process.env.PATH ?? ''}`,
+      // Nothing about a test run should reach Microsoft, and the first-run banner would otherwise
+      // land in the middle of the server's output.
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1',
+      DOTNET_NOLOGO: '1',
+    },
+    // A cold run restores xunit and builds; a warm one is a few seconds
+    startTimeout: 300_000,
+    // `npm run test:dotnet`, never a bare `npm test`: the .NET SDK is the newest of the toolchains
+    // this suite needs and is not yet installed everywhere the others are.
+    onRequestOnly: true,
   },
   {
     name: 'nextjs',
