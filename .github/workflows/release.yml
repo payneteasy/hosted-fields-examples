@@ -73,6 +73,22 @@ jobs:
           tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
           rm -rf "../dist-release/${dir:?}"
 
+      # Nothing to build and nothing to install: the artefact is the sources, the shared
+      # frontend and deploy/. It needs PHP 8.4 with curl and openssl on the target, and the URL
+      # prefix is a setting rather than something compiled in.
+      - name: php-js
+        working-directory: php-js
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="hosted-fields-examples-php"
+          dir="${name}_${tag}"
+          mkdir -p "../dist-release/$dir"
+          cp index.php router.php settings.php oauth.php control.php paynet.php \
+             .env.example README.md "../dist-release/$dir/"
+          cp -r public views deploy "../dist-release/$dir/"
+          tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
+          rm -rf "../dist-release/${dir:?}"
+
       # `output: 'standalone'` gives one server.js plus a minimal node_modules, so this
       # artefact needs nothing but Node 20 either. BASE_PATH is baked in at build time, so the
       # release carries the default prefix — rebuild from source to mount it elsewhere.
@@ -104,7 +120,7 @@ jobs:
             dist-release/SHA256SUMS
           generate_release_notes: true
           body: |
-            Three example integrations of Hosted Fields, the same payment on three servers.
+            Example integrations of Hosted Fields: the same payment, one server per language.
 
             - `hosted-fields-examples-go_*_linux_*.tar.gz` — one static binary with the pages
               embedded, plus `deploy/`. Needs no runtime.
@@ -114,6 +130,9 @@ jobs:
               a Linux server.
             - `hosted-fields-examples-nodejs-express-js_*.tar.gz` — bundled `server.js` with
               `public/`, `views/` and `deploy/`. Needs Node 20+, no `node_modules`.
+            - `hosted-fields-examples-php.tar.gz` — the sources with `public/`, `views/` and
+              `deploy/`. Needs PHP 8.4 with curl and openssl, no Composer: `php -S` for a look,
+              PHP-FPM behind nginx for anything else.
             - `hosted-fields-examples-nextjs.tar.gz` — the standalone Next.js server with
               `public/`, `.next/` and `deploy/`. Needs Node 20+, `node server.js`. The URL
               prefix is compiled in: rebuild from source to change it.
