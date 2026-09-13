@@ -1,0 +1,36 @@
+{
+  /* The server half, and the whole of this example. Note what is not here: no "dom" in lib, so
+     nothing under src/ can name `document` and compile — the browser half is public/, which is
+     ES5 copied from shared/ and is never TypeScript.
+
+     Three settings are load-bearing rather than taste:
+
+     - noEmit, because esbuild does the transpiling and tsc is here only to refuse. The build
+       runs it as prebuild, so there is no way to produce dist/ without it;
+     - erasableSyntaxOnly, because `node src/server.ts` strips types rather than compiling them.
+       An enum or a parameter property would type-check and then fail to run;
+     - allowImportingTsExtensions, because the imports say './config.ts' — that is the specifier
+       Node resolves at runtime, and esbuild is happy with it too. */
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+
+    "noEmit": true,
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src"]
+}

@@ -16,6 +16,7 @@ cd "$(dirname "$0")/.."
 PLAIN_JS_APPS=(
   go-js
   nodejs-express-js
+  nodejs-express-ts-js
   php-js
   python-flask-js
   ruby-sinatra-js

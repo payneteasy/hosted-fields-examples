@@ -1,0 +1,31 @@
+# /etc/systemd/system/hosted-fields-examples-nodejs-express-ts-js.service
+
+[Unit]
+Description=Hosted Fields example (Node.js + Express + TypeScript)
+Documentation=https://doc.payneteasy.com/integration/api_use_cases/hosted_fields.html
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hosted-fields
+Group=hosted-fields
+WorkingDirectory=/opt/hosted-fields-examples-nodejs-express-ts-js
+
+# One variable per line, no multi-line values — hence PRIVATE_KEY_PATH rather than PRIVATE_KEY
+EnvironmentFile=/etc/hosted-fields-examples-nodejs-express-ts-js.env
+ExecStart=/usr/bin/node server.js
+
+Restart=on-failure
+RestartSec=5s
+
+# The app reads one key file, writes nothing and listens on loopback only
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/hosted-fields-examples-nodejs-express-ts-js
+RestrictAddressFamilies=AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

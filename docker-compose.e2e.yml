@@ -93,6 +93,9 @@ services:
   nodejs-express-js:
     <<: *e2e-app
 
+  nodejs-express-ts-js:
+    <<: *e2e-app
+
   php:
     <<: *e2e-app
     # The socket php-js/deploy/nginx.conf's fastcgi_pass names, shared with the nginx container.
