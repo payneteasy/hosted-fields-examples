@@ -1,7 +1,7 @@
 // Takes the docker stack down, whatever happened to the run.
 //
 // Playwright stops a webServer by signalling it, and `docker compose up` does stop the stack on
-// SIGTERM — but a run killed hard, or one whose webServer never became ready, would leave ten
+// SIGTERM — but a run killed hard, or one whose webServer never became ready, would leave twelve
 // containers and two published ports behind. This is the belt to that braces, and it is cheap:
 // `down` on a stack that is already gone succeeds and says nothing.
 

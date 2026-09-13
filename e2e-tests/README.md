@@ -39,9 +39,10 @@ Two things are verified rather than waved through, so that a green run means som
 
 - **the OAuth 1.0a RSA-SHA256 signature on every server call**, checked against the generated
   public key. This is the only place the bytes actually on the wire are checked — the unit tests
-  in `go-js`, `go-react`, `nodejs-express-js`, `php-js`, `python-flask-js`, `ruby-sinatra-js`,
-  `java-springboot-js`, `kotlin-ktor-js`, `rust-axum-js` and `dotnet-aspnetcore-js` each check
-  their own signer against a fixed base string, and `nextjs` has no unit test at all;
+  in `go-js`, `go-react`, `nodejs-express-js`, `nodejs-express-ts-js`, `php-js`,
+  `python-flask-js`, `ruby-sinatra-js`, `java-springboot-js`, `kotlin-ktor-js`, `rust-axum-js`
+  and `dotnet-aspnetcore-js` each check their own signer against a fixed base string, and
+  `nextjs` has no unit test at all;
 - **the `control` checksum on the 3DS return**, because the emulator signs what every example
   verifies. A disagreement shows up as a `403`.
 
@@ -59,26 +60,26 @@ toolchain installed.
 npm install
 npm run browser          # once: downloads Chromium
 npm test                 # every application except .NET, which is asked for by name
-npm run test:go          # or test:go-react / test:express / test:php / test:python /
-                         #    test:ruby / test:java / test:kotlin / test:rust / test:dotnet /
-                         #    test:nextjs
+npm run test:go          # or test:go-react / test:express / test:express-ts / test:php /
+                         #    test:python / test:ruby / test:java / test:kotlin / test:rust /
+                         #    test:dotnet / test:nextjs
 npm run test:ui          # the Playwright UI, for watching a flow
 ```
 
-`npm test` covers **ten** of the eleven: `dotnet-aspnetcore-js` carries `onRequestOnly: true` and
+`npm test` covers **eleven** of the twelve: `dotnet-aspnetcore-js` carries `onRequestOnly: true` and
 is run by name, because a missing toolchain here is a hard failure rather than a skip.
 
 ### Against the containers — `npm run test:docker`
 
-`docker-compose.yml` at the repository root already builds and runs all eleven behind one nginx.
+`docker-compose.yml` at the repository root already builds and runs all twelve behind one nginx.
 This mode points the suite at that stack instead, so the only thing that has to be installed is
 Docker — no Go, no JDK, no cargo, no .NET SDK.
 
 ```bash
-npm run test:docker         # all eleven, .NET included
-npm run test:docker:java    # or :go / :go-react / :express / :php / :python / :ruby / :kotlin /
-                            #    :rust / :dotnet / :nextjs — builds and starts that one
-                            #    container, not eleven
+npm run test:docker         # all twelve, .NET included
+npm run test:docker:java    # or :go / :go-react / :express / :express-ts / :php / :python /
+                            #    :ruby / :kotlin / :rust / :dotnet / :nextjs — builds and starts
+                            #    that one container, not twelve
 npm run test:docker:ui      # the Playwright UI against the stack
 npm run report              # either mode
 ```
@@ -166,14 +167,14 @@ starts containers, and `apps.ts` uses only each entry's `name`, `service` and `b
   puts it in `/usr/local/share/dotnet`, which is usually symlinked onto `PATH` but need not be.
   Set `DOTNET_BIN` or `DOTNET_ROOT` if yours is somewhere else.
 - **The RSA key is generated, never committed** — into `.tmp/`, once, and reused. The docker mode
-  mounts that same pair into all eleven containers, in place of the demo stack's
+  mounts that same pair into all twelve containers, in place of the demo stack's
   `private_key.pem`, and gives them the fake credentials through `environment:`. A root `.env`
   with real ones cannot reach a test run: `docker-compose.e2e.yml` drops it.
-- **Ports 4010-4022** are used so your own servers on 3000-3010 can keep running: 4010 is the
-  emulator, 4011-4019 and 4021-4022 are the applications, and **4020** is nginx in the docker
+- **Ports 4010-4023** are used so your own servers on 3000-3010 can keep running: 4010 is the
+  emulator, 4011-4019 and 4021-4023 are the applications, and **4020** is nginx in the docker
   mode — which is why the tenth application got 4021 rather than the next number in the block. If
   a run ends strangely,
-  `lsof -ti tcp:4010,4011,4012,4013,4014,4015,4016,4017,4018,4019,4020,4021,4022 | xargs kill` —
+  `lsof -ti tcp:4010,4011,4012,4013,4014,4015,4016,4017,4018,4019,4020,4021,4022,4023 | xargs kill` —
   or, for the docker mode, `docker compose -p hosted-fields-examples-e2e down`.
 - `E2E_VERIFY_OAUTH=0` turns off signature verification, which is worth doing only to find out
   whether a failure is the application's or this harness's.
