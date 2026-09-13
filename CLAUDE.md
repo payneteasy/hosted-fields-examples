@@ -1,8 +1,9 @@
 # Hosted Fields examples
 
-Eleven merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`, `php-js/`,
-`python-flask-js/`, `ruby-sinatra-js/`, `java-springboot-js/`, `kotlin-ktor-js/`,
-`rust-axum-js/`, `dotnet-aspnetcore-js/`, `nextjs/` and `go-react/`.
+Twelve merchant integrations of the same payment — `go-js/`, `nodejs-express-js/`,
+`nodejs-express-ts-js/`, `php-js/`, `python-flask-js/`, `ruby-sinatra-js/`,
+`java-springboot-js/`, `kotlin-ktor-js/`, `rust-axum-js/`, `dotnet-aspnetcore-js/`, `nextjs/`
+and `go-react/`.
 They exist to be read, so clarity beats cleverness everywhere in this repository.
 
 ## The rule that breaks most often
@@ -108,6 +109,37 @@ fourth only where there is a build to validate settings at:
 - settings are validated **lazily**, not at module import: `next build` imports the route
   modules, and CI builds without credentials. `go-react/` has no such hazard — its settings are
   Go's, read once in `loadConfig`, and its bundle is told nothing at build time at all.
+
+## TypeScript, in `nodejs-express-ts-js/` only
+
+A port of `nodejs-express-js/`, kept close enough to read as a diff — same routes, same comments,
+same order of the Sale parameters. The one variable is the language, and the reason the example
+exists is that a bundler strips types rather than checking them. Four rules, each explained where
+it is enforced:
+
+- **`tsc --noEmit` runs inside `build`, not beside it.** `"build": "tsc --noEmit && node
+  build.mjs"`, spelled out rather than left to npm's implicit `prebuild` hook, which a different
+  package manager would skip. esbuild — like swc, like rspack in `go-react/web` — transpiles
+  without type-checking, so a project whose `build` is the bundler alone can ship code no
+  compiler ever read. Moving the check into `lint` only is exactly the difference this example
+  exists to remove: `next build` type-checks and `rsbuild build` does not, and neither of them
+  is a rule anyone stated;
+- **types must be erasable, because Node strips rather than compiles.** `npm start` and the e2e
+  suite both run `src/server.ts` directly, which needs Node 22.18+ and forbids `enum`, parameter
+  properties and `namespace` — `erasableSyntaxOnly` in `tsconfig.json` turns that from a runtime
+  failure into a compile error. Imports carry the `.ts` extension for the same reason: Node
+  resolves the specifier literally, `allowImportingTsExtensions` permits it, and esbuild is
+  happy with it;
+- **the gateway's JSON and `req.body` arrive as `unknown`.** Both are typed `any` by their
+  libraries, and an `as` over either would type-check and be a lie in the two places where being
+  wrong costs the most — `POST /pay`, where a body that chose `amount` would choose the charge,
+  and the 3DS callback, whose checksum is the whole security of the return. `src/json.ts` is the
+  one module with no counterpart next door, and it is a runtime check because types are gone by
+  then;
+- **`public/` stays ES5, and a `.ts` file never appears there.** The browser half is a synced
+  copy of `shared/` like every example but the two React ones, so the TypeScript is the server
+  and only the server; `scripts/sync-shared.sh` would overwrite anything else, and CI runs it
+  and then `git diff --exit-code`.
 
 ## PHP, in `php-js/` only
 
@@ -364,6 +396,8 @@ only.
 ./scripts/sync-shared.sh && git diff --exit-code   # every copy matches shared/
 cd go-js              && gofmt -l . && go vet ./... && go build ./...
 cd nodejs-express-js  && npm ci && npm run build
+cd nodejs-express-ts-js && npm ci && npm run lint && node --check public/*.js \
+                      && npm test && npm run build
 cd php-js             && php -l *.php tests/*.php && php tests/run.php
 cd python-flask-js    && python -m compileall -q -x '(\.venv|__pycache__)' . \
                       && python -m unittest discover -s tests -t .
@@ -390,12 +424,12 @@ variables and drives a browser through the payment. It is **local only and not p
 the checks above** — it needs a browser, two bundler builds and either ten toolchains or Docker.
 
 ```bash
-cd e2e-tests && npm test        # or test:go / test:go-react / test:express / test:php /
-                                #    test:python / test:ruby / test:java / test:kotlin /
-                                #    test:rust / test:nextjs
+cd e2e-tests && npm test        # or test:go / test:go-react / test:express /
+                                #    test:express-ts / test:php / test:python / test:ruby /
+                                #    test:java / test:kotlin / test:rust / test:nextjs
 cd e2e-tests && npm run test:dotnet   # .NET only, and never part of a bare `npm test`
 
-cd e2e-tests && npm run test:docker   # the same specs against docker-compose.yml — all eleven
+cd e2e-tests && npm run test:docker   # the same specs against docker-compose.yml — all twelve
 cd e2e-tests && npm run test:docker:java   # or one, by the same short names
 ```
 
@@ -404,11 +438,11 @@ through `appOrigin()` / `appUrl()`, which return its own port natively and the s
 plus its `BASE_PATH` behind compose. `E2E_TARGET=docker` is what switches, and
 `playwright.docker.config.ts` sets the rest of the difference:
 
-- **the docker mode runs all eleven, .NET included.** `onRequestOnly` is about a toolchain that
+- **the docker mode runs all twelve, .NET included.** `onRequestOnly` is about a toolchain that
   might be missing, and Docker supplies all of them — so that flag is read only in the native
   mode, which is what `startedApps()` in `src/apps.ts` decides;
 - **`docker-compose.e2e.yml` is an override, never a second stack.** It is read on top of
-  `docker-compose.yml`, so the eleven services and the eleven mounted `deploy/nginx.conf` are
+  `docker-compose.yml`, so the twelve services and the twelve mounted `deploy/nginx.conf` are
   not restated. It changes four things: its own project name, so a demo stack and a test run
   can be up at once; nginx on **4020** and the emulator published on **4010**; the e2e settings
   through `environment:`, with the base file's `env_file` dropped so a root `.env` with real
@@ -449,13 +483,13 @@ The native mode rebuilds `nextjs/.next`, because `basePath` is baked in at build
 `go-react/web/dist`, because `//go:embed` needs it before the compiler runs. The docker mode
 builds both inside the images and leaves the working tree alone.
 
-## All eleven at once, in `docker-compose.yml`
+## All twelve at once, in `docker-compose.yml`
 
-`docker compose up --build` builds eleven images and runs them behind one nginx on `:8080`. It
+`docker compose up --build` builds twelve images and runs them behind one nginx on `:8080`. It
 exists for three reasons, and the second is the one to protect:
 
 - no toolchain to install;
-- **it is the only thing that ever executes the eleven `deploy/nginx.conf`.** Those files ship in
+- **it is the only thing that ever executes the twelve `deploy/nginx.conf`.** Those files ship in
   the release archives and the READMEs tell people to install them, and until this they were
   documentation with nothing to check them;
 - it is what `e2e-tests/` runs its second mode against, so a browser test of any example needs
@@ -465,20 +499,20 @@ exists for three reasons, and the second is the one to protect:
 That second reason is what fixes the shape of the file. Every app service joins the nginx
 container's network namespace (`network_mode: "service:nginx"`), so the snippets' own
 `proxy_pass http://127.0.0.1:300x` is true inside it and they are mounted **unmodified**. Service
-names and `LISTEN_ADDR=0.0.0.0` would have been the ordinary answer and would have meant eleven
+names and `LISTEN_ADDR=0.0.0.0` would have been the ordinary answer and would have meant twelve
 second copies, drifting silently — the one thing `shared/` exists to prevent. Keep the mounts
 read-only and keep them pointing at `*/deploy/nginx.conf`.
 
 Four consequences worth knowing before editing it: a service in a shared namespace may not
 declare `ports`, `networks` or `hostname`; **`docker compose restart` does not work** — the
-eleven hold a handle on the namespace nginx owns, so restarting leaves some of them without a
+twelve hold a handle on the namespace nginx owns, so restarting leaves some of them without a
 network and `up -d --force-recreate` is the way; the root `.env` must carry **no `PORT`,
-`LISTEN_ADDR` or `BASE_PATH`** — all eleven read that one file, and every example already
+`LISTEN_ADDR` or `BASE_PATH`** — all twelve read that one file, and every example already
 defaults to its own port and prefix; and **`HTTP_PORT` is one variable driving three things** —
 the published port, nginx's own `listen`, and the port in `PUBLIC_URL`. That is why
 `docker/nginx/default.conf.template` is a template: the nginx image's entrypoint runs `envsubst`
 over `/etc/nginx/templates/*.template`, so the file may hold no nginx variable of its own, and
-the eleven mounted snippets are not templates, which is what keeps their `$host` and
+the twelve mounted snippets are not templates, which is what keeps their `$host` and
 `$proxy_add_x_forwarded_for` intact. `env_file` is `required: false` so a run that passes every
 setting through `environment:` needs no root `.env` and no key at the repository root.
 
@@ -488,7 +522,7 @@ blind to compose's environment. Its `Dockerfile` writes a compose pool instead, 
 comment exactly which two lines differ and why. `nextjs` is the only one needing a build argument,
 because `next build` bakes `basePath` in.
 
-**This is what an eleventh example now costs**, on top of the one line in
+**This is what a twelfth example now costs**, on top of the one line in
 `scripts/sync-shared.sh`: a `Dockerfile`, a `.dockerignore`, a service in `docker-compose.yml`
 and a mount line for its snippet. Images are not built in CI.
 

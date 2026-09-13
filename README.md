@@ -1,9 +1,9 @@
 # Hosted Fields examples
 
-Eleven working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on PHP, on
-Python, on Ruby, on Java, on Kotlin, on Rust, on .NET, on Next.js and on Go with a React page.
-Same payment, same screens, same flow — what differs is the server language and, in the last two,
-whether the page is a static file or a React tree.
+Twelve working merchant integrations of [Hosted Fields][docs]: on Go, on Node.js, on TypeScript,
+on PHP, on Python, on Ruby, on Java, on Kotlin, on Rust, on .NET, on Next.js and on Go with a
+React page. Same payment, same screens, same flow — what differs is the server language and, in
+the last two, whether the page is a static file or a React tree.
 
 ## The examples
 
@@ -11,6 +11,7 @@ whether the page is a static file or a React tree.
 | --- | --- | --- | --- |
 | **Go** | Go 1.24+, standard library only | [`go-js/`](go-js/) | [`main.go`](go-js/main.go) routes · [`paynet.go`](go-js/paynet.go) the three gateway calls · [`oauth.go`](go-js/oauth.go) request signing |
 | **Node.js** | Node 20+, express only | [`nodejs-express-js/`](nodejs-express-js/) | [`src/server.js`](nodejs-express-js/src/server.js) routes · [`src/paynet.js`](nodejs-express-js/src/paynet.js) the three gateway calls · [`src/oauth.js`](nodejs-express-js/src/oauth.js) request signing |
+| **TypeScript** | Node 22.18+, express only | [`nodejs-express-ts-js/`](nodejs-express-ts-js/) | [`src/server.ts`](nodejs-express-ts-js/src/server.ts) routes · [`src/paynet.ts`](nodejs-express-ts-js/src/paynet.ts) the three gateway calls · [`src/json.ts`](nodejs-express-ts-js/src/json.ts) where `unknown` becomes checked |
 | **PHP** | PHP 8.4+, no Composer | [`php-js/`](php-js/) | [`index.php`](php-js/index.php) routes · [`paynet.php`](php-js/paynet.php) the three gateway calls · [`oauth.php`](php-js/oauth.php) request signing |
 | **Python** | Python 3.12+, Flask | [`python-flask-js/`](python-flask-js/) | [`app.py`](python-flask-js/app.py) routes · [`paynet.py`](python-flask-js/paynet.py) the three gateway calls · [`oauth.py`](python-flask-js/oauth.py) request signing |
 | **Ruby** | Ruby 3.1+, Sinatra | [`ruby-sinatra-js/`](ruby-sinatra-js/) | [`app.rb`](ruby-sinatra-js/app.rb) routes · [`paynet.rb`](ruby-sinatra-js/paynet.rb) the three gateway calls · [`oauth.rb`](ruby-sinatra-js/oauth.rb) request signing |
@@ -29,6 +30,14 @@ The browser half lives once, in [`shared/`](shared/) —
 That is the point of having more than one: everything interesting about Hosted Fields happens
 in the page, and the server behind it is interchangeable. Pick whichever language you work in
 and ignore the others.
+
+Two pairs in that table are the same example twice, with one variable changed.
+[`nodejs-express-ts-js/`](nodejs-express-ts-js/) is [`nodejs-express-js/`](nodejs-express-js/) in
+TypeScript, close enough to read as a diff: same routes, same comments, same order of the Sale
+parameters. What it adds is a build that cannot produce an artefact without type-checking it
+first — `"build": "tsc --noEmit && node build.mjs"`, because every bundler here strips types
+rather than checking them. See
+[its README](nodejs-express-ts-js/README.md#typescript-and-what-it-is-for-here).
 
 The last two answer the other question — what this looks like when the page is React. They
 cannot share those files, so they are ported to components, but they serve the very same
@@ -67,6 +76,7 @@ the older ones and the checksums.
 | Go | macOS Apple silicon | [`..._darwin_arm64.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go_darwin_arm64.tar.gz) | `tar -xzf`, then `xattr -d com.apple.quarantine hosted-fields-examples-go` — the binary is not notarised |
 | Go | Windows x64 | [`..._windows_amd64.zip`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-go_windows_amd64.zip) | unzip, set the environment, run the `.exe` |
 | Node.js | any | [`...nodejs-express-js.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nodejs-express-js.tar.gz) | `tar -xzf`, then `node server.js` — needs Node 20+, no `npm install` |
+| TypeScript | any | [`...nodejs-express-ts-js.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-nodejs-express-ts-js.tar.gz) | the same: the archive is the bundled JavaScript, so the target needs Node 20+ and no TypeScript |
 | PHP | any | [`...php.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-php.tar.gz) | `tar -xzf`, then `php -S 127.0.0.1:3003 router.php` — needs PHP 8.4+, no Composer |
 | Python | any | [`...python.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-python.tar.gz) | `tar -xzf`, then `pip install -r requirements.txt` in a venv and `python app.py` — needs Python 3.12+ |
 | Ruby | any | [`...ruby.tar.gz`](https://github.com/payneteasy/hosted-fields-examples/releases/latest/download/hosted-fields-examples-ruby.tar.gz) | `tar -xzf`, then `bundle install` and `bundle exec ruby app.rb` — needs Ruby 3.1+, not macOS's 2.6 |
@@ -133,14 +143,14 @@ Put the key next to the app as `private_key.pem` or point `PRIVATE_KEY_PATH` at 
 `*.key` and `.env` are git-ignored repository wide — keep it that way.
 
 None of these have defaults. Every example refuses to serve a payment until all of them are set,
-rather than falling back to a host baked in at some point and forgotten. Go, Express, Flask,
-Sinatra, Spring Boot, Ktor, axum and ASP.NET Core check at startup; Next checks on the first
-request, so that a build needs no credentials, and PHP on every request, because it has no startup
-to check at.
+rather than falling back to a host baked in at some point and forgotten. Go, Express, the
+TypeScript example, Flask, Sinatra, Spring Boot, Ktor, axum and ASP.NET Core check at startup;
+Next checks on the first request, so that a build needs no credentials, and PHP on every request,
+because it has no startup to check at.
 
-## Run all eleven at once
+## Run all twelve at once
 
-That "behind one nginx" is not a figure of speech, and `docker-compose.yml` is it: eleven images,
+That "behind one nginx" is not a figure of speech, and `docker-compose.yml` is it: twelve images,
 one nginx, no toolchain to install.
 
 ```bash
@@ -149,7 +159,7 @@ cp your_key.pem private_key.pem         # PKCS#8 — the JDK reads nothing else
 docker compose up --build               # http://localhost:8080/
 ```
 
-The front page lists all eleven. Each is routed by **its own [`deploy/nginx.conf`](go-js/deploy/nginx.conf)**,
+The front page lists all twelve. Each is routed by **its own [`deploy/nginx.conf`](go-js/deploy/nginx.conf)**,
 mounted unmodified — so this is also what checks that the file in every release archive is
 correct, which nothing else does.
 
@@ -181,6 +191,14 @@ cd nodejs-express-js
 npm install
 cp .env.example .env          # the same values
 npm start                     # http://localhost:3000/hosted-fields-examples-nodejs-express-js/
+```
+
+```bash
+# TypeScript — needs Node 22.18+, which runs src/server.ts without compiling it first
+cd nodejs-express-ts-js
+npm install
+cp .env.example .env          # the same values
+npm start                     # http://localhost:3011/hosted-fields-examples-nodejs-express-ts-js/
 ```
 
 ```bash
@@ -254,6 +272,7 @@ Sandbox test card: `4444 4444 4444 4448`, any future expiry, CVV `123`.
 
 Each app has its own README with the details — settings, the 3DS return, deployment behind nginx:
 [go-js/README.md](go-js/README.md) · [nodejs-express-js/README.md](nodejs-express-js/README.md) ·
+[nodejs-express-ts-js/README.md](nodejs-express-ts-js/README.md) ·
 [php-js/README.md](php-js/README.md) · [python-flask-js/README.md](python-flask-js/README.md) ·
 [ruby-sinatra-js/README.md](ruby-sinatra-js/README.md) ·
 [java-springboot-js/README.md](java-springboot-js/README.md) ·
@@ -268,10 +287,11 @@ Each app has its own README with the details — settings, the 3DS return, deplo
 ```
 shared/                 the browser half, once
 scripts/sync-shared.sh  copies it into every app
-docker-compose.yml      all eleven at once, behind one nginx
-docker/nginx/           the server block the eleven shipped snippets are included into
+docker-compose.yml      all twelve at once, behind one nginx
+docker/nginx/           the server block the twelve shipped snippets are included into
 go-js/                  Go + plain JS, assets embedded in the binary
 nodejs-express-js/      Node.js + Express + plain JS
+nodejs-express-ts-js/   the same in TypeScript, type-checked as part of the build
 php-js/                 PHP + plain JS, no Composer
 python-flask-js/        Python + Flask + plain JS
 ruby-sinatra-js/        Ruby + Sinatra + plain JS
@@ -340,14 +360,14 @@ npm install && npm run browser   # once
 npm test                         # starts each app itself — needs its toolchain
 npm run test:dotnet              # .NET is asked for by name, not part of `npm test`
 
-npm run test:docker              # the same specs against the compose stack — all eleven
+npm run test:docker              # the same specs against the compose stack — all twelve
 npm run test:docker:java         # or one of them, by its short name
 ```
 
 The two ways run the same specs against the same fake gateway; what differs is where the
 applications come from. Natively Playwright starts each one, which is why a run needs that
 toolchain installed and why .NET is opt-in. Against the containers there is nothing to install but
-Docker, so all eleven run — including .NET — and the stack comes up and goes down with the run,
+Docker, so all twelve run — including .NET — and the stack comes up and goes down with the run,
 under its own project name so a demo stack on `:8080` is left alone.
 
 It runs locally only, not in CI. The signatures and the 3DS checksum are verified rather than

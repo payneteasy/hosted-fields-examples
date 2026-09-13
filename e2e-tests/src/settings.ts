@@ -47,7 +47,7 @@ export const TARGET = process.env.E2E_TARGET === 'docker' ? 'docker' : 'native';
  * nowhere. Change it here and in that file together.
  */
 export const NGINX_PORT = 4020;
-/** Where all ten apps answer in the docker mode — one origin, ten prefixes. */
+/** Where all twelve apps answer in the docker mode — one origin, twelve prefixes. */
 export const NGINX_ORIGIN = `http://${HOST}:${NGINX_PORT}`;
 
 /**

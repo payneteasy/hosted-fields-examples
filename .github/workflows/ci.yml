@@ -60,6 +60,33 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  node-ts:
+    name: nodejs-express-ts-js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nodejs-express-ts-js
+    steps:
+      - uses: actions/checkout@v5
+      # Node 22, not the 20 the JavaScript job uses: the app runs src/server.ts directly and
+      # needs the type stripping Node gained in 22.18.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: nodejs-express-ts-js/package-lock.json
+
+      - run: npm ci
+      # biome check plus tsc --noEmit. There is no `node --check src/*.ts`: TypeScript is not
+      # JavaScript, and the type check below is what took that step's place.
+      - run: npm run lint
+      # The browser half is still ES5, and still checked the way every other example checks it
+      - run: node --check public/*.js
+      # The same OAuth and callback vectors as the job above, over its own copy of the two files
+      - run: npm test
+      # `tsc --noEmit && node build.mjs` — a type error fails here, before esbuild runs
+      - run: npm run build
+
   php:
     name: php-js
     runs-on: ubuntu-latest

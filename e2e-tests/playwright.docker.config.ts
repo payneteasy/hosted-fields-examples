@@ -1,14 +1,14 @@
 // The docker mode: the same specs, the same emulator, against docker-compose.yml.
 //
-// playwright.config.ts starts each app itself, which needs a toolchain for each of the ten.
+// playwright.config.ts starts each app itself, which needs a toolchain for each of the twelve.
 // This one starts the containers instead, so the only thing that has to be installed is Docker.
 // `npm run test:docker`, or `npm run test:docker:<app>` for one of them.
 //
 // Two differences from the native config, and both follow from that:
 //
-//  - all ten projects run by default. `onRequestOnly` on dotnet-aspnetcore-js exists because a
+//  - all twelve projects run by default. `onRequestOnly` on dotnet-aspnetcore-js exists because a
 //    toolchain might be missing, and here none is;
-//  - the apps do not each have a port. All ten are behind one nginx and are told apart by their
+//  - the apps do not each have a port. All twelve are behind one nginx and are told apart by their
 //    BASE_PATH — which the specs never notice, because they go through appOrigin() and appUrl().
 
 import { defineConfig, devices } from '@playwright/test';
@@ -19,7 +19,7 @@ import { NGINX_ORIGIN, TARGET } from './src/settings.ts';
 
 /* E2E_TARGET is what appOrigin() reads, and it is read at import time — a config cannot set it
    for itself. The npm scripts set it; this says so plainly rather than running every spec
-   against ten ports that are not listening. */
+   against twelve ports that are not listening. */
 if (TARGET !== 'docker') {
   throw new Error(
     `${COMPOSE_COMMAND} is the docker mode and needs E2E_TARGET=docker in the environment. ` +
@@ -27,11 +27,11 @@ if (TARGET !== 'docker') {
   );
 }
 
-/* The key is mounted into all ten containers, so it has to exist before the stack comes up —
+/* The key is mounted into all twelve containers, so it has to exist before the stack comes up —
    and this module is evaluated before Playwright starts anything. */
 ensureKeypair();
 
-/* A run that asks for one app should start one container, not build ten. Playwright has no
+/* A run that asks for one app should start one container, not build twelve. Playwright has no
    per-project webServer, but startedApps() reads the command line it does hand us. */
 const appsToStart = startedApps();
 
@@ -65,7 +65,7 @@ export default defineConfig({
     // Never: a stack already up was started by hand or left behind, and either way its images and
     // its settings are not knowably this run's.
     reuseExistingServer: false,
-    // A cold run builds ten images from scratch
+    // A cold run builds twelve images from scratch
     timeout: 1_800_000,
     // `docker compose up` stops the stack on SIGTERM; globalTeardown is the belt to this braces.
     gracefulShutdown: { signal: 'SIGTERM', timeout: 120_000 },

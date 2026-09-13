@@ -13,7 +13,7 @@
 #    LISTEN_ADDR=0.0.0.0, would mean eleven second copies of those files, drifting quietly.
 #
 #    It also means the apps keep their shipped LISTEN_ADDR=127.0.0.1 default, that nginx needs no
-#    DNS and so starts before the apps do, and that ports 3000-3010 stay free on your machine.
+#    DNS and so starts before the apps do, and that ports 3000-3011 stay free on your machine.
 #
 #    The price, and it is worth knowing before you hit it: a service in a shared namespace may
 #    not declare `ports`, `networks` or `hostname`, and the eleven hold a handle on the namespace
@@ -68,6 +68,7 @@ services:
       # The eleven shipped snippets, unmodified. A diff here is a real bug in a release archive.
       - ./go-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/go.conf:ro
       - ./nodejs-express-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/nodejs-express-js.conf:ro
+      - ./nodejs-express-ts-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/nodejs-express-ts-js.conf:ro
       - ./php-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/php.conf:ro
       - ./python-flask-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/python.conf:ro
       - ./ruby-sinatra-js/deploy/nginx.conf:/etc/nginx/conf.d/apps/ruby.conf:ro
@@ -82,6 +83,7 @@ services:
       # off disk. The directories are committed copies of shared/, so mounting them adds no
       # second source of truth — and it means that block is exercised rather than assumed.
       - ./nodejs-express-js/public:/opt/hosted-fields-examples-nodejs-express-js/public:ro
+      - ./nodejs-express-ts-js/public:/opt/hosted-fields-examples-nodejs-express-ts-js/public:ro
       - ./python-flask-js/public:/opt/hosted-fields-examples-python/public:ro
       - ./ruby-sinatra-js/public:/opt/hosted-fields-examples-ruby/public:ro
 
@@ -99,6 +101,10 @@ services:
   nodejs-express-js:
     <<: *app
     build: ./nodejs-express-js
+
+  nodejs-express-ts-js:
+    <<: *app
+    build: ./nodejs-express-ts-js
 
   php:
     <<: *app

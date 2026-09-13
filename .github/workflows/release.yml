@@ -82,9 +82,12 @@ jobs:
           go-version: '1.24'
           cache: false
 
+      # 22 rather than 20: nodejs-express-ts-js runs its entry point as TypeScript and needs
+      # the type stripping Node gained in 22.18. The artefacts are bundled and target their own
+      # Node version, so building them here on 22 changes nothing about what ships.
       - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: nodejs-express-js/package-lock.json
 
@@ -172,6 +175,22 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME}"
           name="hosted-fields-examples-nodejs-express-js"
+          dir="${name}_${tag}"
+          npm ci
+          npm run build
+          mkdir -p "../dist-release/$dir"
+          cp -r dist/. "../dist-release/$dir/"
+          cp -r deploy "../dist-release/$dir/"
+          tar -czf "../dist-release/$name.tar.gz" -C ../dist-release "$dir"
+          rm -rf "../dist-release/${dir:?}"
+
+      # The same artefact again, from a TypeScript source tree: `npm run build` type-checks and
+      # then bundles, so what ships is plain JavaScript with no TypeScript on the target host.
+      - name: nodejs-express-ts-js
+        working-directory: nodejs-express-ts-js
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="hosted-fields-examples-nodejs-express-ts-js"
           dir="${name}_${tag}"
           npm ci
           npm run build
@@ -320,6 +339,9 @@ jobs:
               a Linux server.
             - `hosted-fields-examples-nodejs-express-js_*.tar.gz` — bundled `server.js` with
               `public/`, `views/` and `deploy/`. Needs Node 20+, no `node_modules`.
+            - `hosted-fields-examples-nodejs-express-ts-js.tar.gz` — the same, from the
+              TypeScript example: the bundle is plain JavaScript, so the target needs Node 20+
+              and no TypeScript. Building it from source needs Node 22.18+.
             - `hosted-fields-examples-php.tar.gz` — the sources with `public/`, `views/` and
               `deploy/`. Needs PHP 8.4 with curl and openssl, no Composer: `php -S` for a look,
               PHP-FPM behind nginx for anything else.

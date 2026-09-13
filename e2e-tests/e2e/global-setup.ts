@@ -13,7 +13,7 @@
 import { appUrl, startedApps } from '../src/apps.ts';
 import { EMULATOR_ORIGIN, TARGET } from '../src/settings.ts';
 
-/** Long enough for nine containers to come up, and a `next build` is not among them here. */
+/** Long enough for twelve containers to come up, and a `next build` is not among them here. */
 const DOCKER_READY_TIMEOUT = 180_000;
 const POLL_INTERVAL = 1_000;
 

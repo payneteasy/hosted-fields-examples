@@ -237,6 +237,18 @@ export const APPS: AppUnderTest[] = [
     env: gatewayEnv(4012),
   },
   {
+    name: 'nodejs-express-ts-js',
+    service: 'nodejs-express-ts-js',
+    port: 4023,
+    basePath: '/hosted-fields-examples-nodejs-express-ts-js',
+    cwd: join(REPO_ROOT, 'nodejs-express-ts-js'),
+    // The TypeScript entry point, run as it is: Node strips the types, so there is nothing to
+    // build first and no compiler in the dependency list to run. Needs Node 22.18+, which is
+    // also what the app's own engines field says.
+    command: 'node src/server.ts',
+    env: gatewayEnv(4023),
+  },
+  {
     name: 'php-js',
     service: 'php',
     port: 4014,

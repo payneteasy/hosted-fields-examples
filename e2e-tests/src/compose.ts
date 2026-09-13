@@ -6,7 +6,7 @@ import type { AppUnderTest } from './apps.ts';
  *  tear each other down — the project name is what `docker compose down` scopes itself to. */
 export const COMPOSE_PROJECT = 'hosted-fields-examples-e2e';
 
-/** Run from the repository root: both files are there, and so are the ten build contexts. */
+/** Run from the repository root: both files are there, and so are the twelve build contexts. */
 export const COMPOSE_ARGS = [
   'compose',
   '-p',
